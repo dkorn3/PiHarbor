@@ -28,6 +28,11 @@ except ImportError:
     dns_backend = None
 
 try:
+    import adblock as adblock_backend
+except ImportError:
+    adblock_backend = None
+
+try:
     import firewall as firewall_backend
 except ImportError:
     firewall_backend = None
@@ -279,7 +284,10 @@ def get_arp_devices():
 
         ip = parts[0]
 
-        if not ipaddress.ip_address(ip).version == 4:
+        try:
+            if ipaddress.ip_address(ip).version != 4:
+                continue
+        except ValueError:
             continue
 
         mac = None
@@ -528,6 +536,78 @@ def get_firewall_enabled():
 
 
 # ============================================================
+# Ad Blocking
+# ============================================================
+
+def get_adblock_status():
+    """
+    Return current ad-blocking status.
+    """
+
+    if adblock_backend is None:
+
+        return {
+            "enabled": False,
+            "blocked_domains": 0,
+            "size_bytes": 0,
+            "last_update": None,
+            "path": None,
+        }
+
+    try:
+
+        return adblock_backend.get_status()
+
+    except Exception:
+
+        return {
+            "enabled": False,
+            "blocked_domains": 0,
+            "size_bytes": 0,
+            "last_update": None,
+            "path": None,
+        }
+
+
+def update_adblock():
+    """
+    Download and install the latest Hagezi
+    Multi NORMAL blocklist.
+    """
+
+    if adblock_backend is None:
+
+        return {
+            "success": False,
+            "message": "Adblock backend is unavailable.",
+        }
+
+    return adblock_backend.update_blocklist()
+
+
+def enable_adblock():
+    """
+    Enable PiServer ad blocking.
+    """
+
+    if adblock_backend is None:
+        return False
+
+    return adblock_backend.enable()
+
+
+def disable_adblock():
+    """
+    Disable PiServer ad blocking.
+    """
+
+    if adblock_backend is None:
+        return False
+
+    return adblock_backend.disable()
+
+
+# ============================================================
 # NAT Controls
 # ============================================================
 
@@ -617,6 +697,9 @@ def get_dashboard_data():
             "nat",
             {},
         ),
+
+        "adblock":
+            get_adblock_status(),
 
         "timestamp":
             metrics.get(
@@ -1247,6 +1330,45 @@ body {
     <br>
 
 
+    <!-- AD BLOCKING -->
+
+    <div class="card">
+
+        <h3>Ad Blocking</h3>
+
+        <div class="service">
+
+            <span>
+                <span
+                    class="dot"
+                    id="adblock-dot"
+                ></span>
+
+                Hagezi Multi NORMAL
+            </span>
+
+            <span
+                class="badge"
+                id="adblock-status"
+            >
+                --
+            </span>
+
+        </div>
+
+        <div class="sub">
+            Blocked domains:
+            <strong id="adblock-count">
+                --
+            </strong>
+        </div>
+
+    </div>
+
+
+    <br>
+
+
     <!-- DEVICES -->
 
     <div class="card">
@@ -1563,6 +1685,49 @@ async function refreshDashboard() {
             "vpn",
             services.vpn?.enabled
         );
+
+
+        // Ad blocking
+
+        const adblock =
+            data.adblock || {};
+
+        const adblockDot =
+            document.getElementById(
+                "adblock-dot"
+            );
+
+        const adblockStatus =
+            document.getElementById(
+                "adblock-status"
+            );
+
+        const adblockCount =
+            document.getElementById(
+                "adblock-count"
+            );
+
+        if (adblock.enabled) {
+
+            adblockDot.className =
+                "dot active";
+
+            adblockStatus.textContent =
+                "Active";
+
+        } else {
+
+            adblockDot.className =
+                "dot inactive";
+
+            adblockStatus.textContent =
+                "Inactive";
+        }
+
+        adblockCount.textContent =
+            adblock.blocked_domains !== undefined
+                ? adblock.blocked_domains
+                : "0";
 
 
         // Devices
@@ -2160,12 +2325,420 @@ def dhcp_page():
     )
 
 
-@app.route("/dns")
+# ============================================================
+# DNS / Ad Blocking Page
+# ============================================================
+
+@app.route(
+    "/dns",
+    methods=["GET", "POST"],
+)
 def dns_page():
 
-    return simple_page(
-        "DNS",
-        "DNS configuration, filtering, and health."
+    message = None
+    message_type = None
+
+    if request.method == "POST":
+
+        action = request.form.get(
+            "adblock_action"
+        )
+
+        try:
+
+            if action == "update":
+
+                result = update_adblock()
+
+                message = result.get(
+                    "message",
+                    "Blocklist update completed.",
+                )
+
+                message_type = (
+                    "success"
+                    if result.get("success")
+                    else "error"
+                )
+
+            elif action == "enable":
+
+                success = enable_adblock()
+
+                message = (
+                    "Ad blocking enabled."
+                    if success
+                    else "Failed to enable ad blocking."
+                )
+
+                message_type = (
+                    "success"
+                    if success
+                    else "error"
+                )
+
+            elif action == "disable":
+
+                success = disable_adblock()
+
+                message = (
+                    "Ad blocking disabled."
+                    if success
+                    else "Failed to disable ad blocking."
+                )
+
+                message_type = (
+                    "success"
+                    if success
+                    else "error"
+                )
+
+        except Exception as exc:
+
+            message = (
+                f"Ad blocking operation failed: {exc}"
+            )
+
+            message_type = "error"
+
+    status = get_adblock_status()
+
+    dns_health = None
+
+    if dns_backend is not None:
+
+        try:
+
+            dns_health = (
+                dns_backend.get_dns_health()
+            )
+
+        except Exception:
+
+            dns_health = None
+
+    return render_template_string(
+        """
+        <!DOCTYPE html>
+        <html>
+
+        <head>
+
+        <meta
+            name="viewport"
+            content="width=device-width"
+        >
+
+        <title>DNS - PiServer</title>
+
+        <style>
+
+        body {
+            background:#0f1115;
+            color:#f1f1f1;
+            font-family:Arial,sans-serif;
+            padding:30px;
+        }
+
+        .card {
+            background:#171a21;
+            border:1px solid #282c35;
+            border-radius:12px;
+            padding:20px;
+            max-width:900px;
+            margin-bottom:20px;
+        }
+
+        a {
+            color:white;
+        }
+
+        .status {
+            font-size:24px;
+            font-weight:bold;
+        }
+
+        .active {
+            color:#65d985;
+        }
+
+        .inactive {
+            color:#d96868;
+        }
+
+        .button {
+            padding:9px 14px;
+            background:#252a34;
+            color:white;
+            border:1px solid #3a404c;
+            border-radius:7px;
+            cursor:pointer;
+            margin-right:8px;
+        }
+
+        .button:hover {
+            background:#303642;
+        }
+
+        .message {
+            padding:12px;
+            border-radius:8px;
+            margin-bottom:20px;
+            background:#252a34;
+        }
+
+        .message.success {
+            border:1px solid #3b7650;
+        }
+
+        .message.error {
+            border:1px solid #7a4141;
+        }
+
+        .row {
+            padding:12px 0;
+            border-bottom:1px solid #282c35;
+        }
+
+        .row:last-child {
+            border-bottom:none;
+        }
+
+        .value {
+            float:right;
+            font-weight:600;
+        }
+
+        </style>
+
+        </head>
+
+        <body>
+
+        <p>
+            <a href="/">
+                ← Dashboard
+            </a>
+        </p>
+
+        <h1>DNS</h1>
+
+        {% if message %}
+
+            <div class="message {{ message_type }}">
+                {{ message }}
+            </div>
+
+        {% endif %}
+
+
+        <!-- DNS STATUS -->
+
+        <div class="card">
+
+            <h2>DNS Service</h2>
+
+            {% if dns_health %}
+
+                <div class="row">
+
+                    Status
+
+                    <span class="value">
+                        {{ dns_health.status }}
+                    </span>
+
+                </div>
+
+                <div class="row">
+
+                    Connectivity
+
+                    <span class="value">
+                        {{ dns_health.connectivity }}
+                    </span>
+
+                </div>
+
+                <div class="row">
+
+                    Upstream Servers
+
+                    <span class="value">
+
+                        {% for server in dns_health.upstream_servers %}
+
+                            {{ server }}{% if not loop.last %}, {% endif %}
+
+                        {% endfor %}
+
+                    </span>
+
+                </div>
+
+                <div class="row">
+
+                    DNS Latency
+
+                    <span class="value">
+
+                        {% if dns_health.latency_ms is not none %}
+                            {{ dns_health.latency_ms }} ms
+                        {% else %}
+                            N/A
+                        {% endif %}
+
+                    </span>
+
+                </div>
+
+            {% else %}
+
+                <p>
+                    DNS health information unavailable.
+                </p>
+
+            {% endif %}
+
+        </div>
+
+
+        <!-- AD BLOCKING -->
+
+        <div class="card">
+
+            <h2>Ad Blocking</h2>
+
+            <div class="row">
+
+                Status
+
+                {% if status.enabled %}
+
+                    <span class="value active">
+                        Enabled
+                    </span>
+
+                {% else %}
+
+                    <span class="value inactive">
+                        Disabled
+                    </span>
+
+                {% endif %}
+
+            </div>
+
+            <div class="row">
+
+                Blocklist
+
+                <span class="value">
+                    Hagezi Multi NORMAL
+                </span>
+
+            </div>
+
+            <div class="row">
+
+                Blocked Domains
+
+                <span class="value">
+                    {{ status.blocked_domains }}
+                </span>
+
+            </div>
+
+            <div class="row">
+
+                Last Updated
+
+                <span class="value">
+
+                    {% if status.last_update %}
+
+                        {{ status.last_update }}
+
+                    {% else %}
+
+                        Never
+
+                    {% endif %}
+
+                </span>
+
+            </div>
+
+            <br>
+
+            <form method="post">
+
+                {% if status.enabled %}
+
+                    <button
+                        class="button"
+                        name="adblock_action"
+                        value="disable"
+                    >
+                        Disable Ad Blocking
+                    </button>
+
+                {% else %}
+
+                    <button
+                        class="button"
+                        name="adblock_action"
+                        value="enable"
+                    >
+                        Enable Ad Blocking
+                    </button>
+
+                {% endif %}
+
+                <button
+                    class="button"
+                    name="adblock_action"
+                    value="update"
+                >
+                    Update Blocklist
+                </button>
+
+            </form>
+
+        </div>
+
+
+        <!-- INFORMATION -->
+
+        <div class="card">
+
+            <h2>How It Works</h2>
+
+            <p>
+                PiServer uses dnsmasq to provide DNS
+                services to devices on the LAN.
+            </p>
+
+            <p>
+                Ad-blocking domains are provided by
+                the Hagezi Multi NORMAL blocklist.
+            </p>
+
+            <p>
+                Blocked DNS requests are prevented
+                from resolving through the PiServer.
+            </p>
+
+        </div>
+
+        </body>
+
+        </html>
+        """,
+        status=status,
+        dns_health=dns_health,
+        message=message,
+        message_type=message_type,
     )
 
 
@@ -2186,6 +2759,10 @@ def vpn_page():
         "WireGuard VPN configuration and status."
     )
 
+
+# ============================================================
+# Monitoring
+# ============================================================
 
 @app.route("/monitoring")
 def monitoring_page():
@@ -2301,6 +2878,10 @@ def monitoring_page():
     )
 
 
+# ============================================================
+# Logs
+# ============================================================
+
 @app.route("/logs")
 def logs_page():
 
@@ -2398,8 +2979,3 @@ def logs_page():
         logs=logs,
     )
 
-
-
-
-if __name__ == "__main__":
-    main()
