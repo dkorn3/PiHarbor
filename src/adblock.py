@@ -148,7 +148,7 @@ def validate_blocklist(path=TEMP_BLOCKLIST_PATH):
     return result.returncode == 0
 
 
-def _validate_content(path):
+def _validate_content(path=TEMP_BLOCKLIST_PATH):
     """
     Perform basic validation before installing the list.
 
