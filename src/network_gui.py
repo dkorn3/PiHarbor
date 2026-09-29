@@ -1,4 +1,3 @@
-
 from flask import (
     Flask,
     jsonify,
@@ -59,6 +58,7 @@ def get_config():
     """
     Load the current PiServer configuration.
     """
+
     return gateway_config.load_config()
 
 
@@ -100,6 +100,7 @@ def run_command(command, timeout=5):
     """
 
     try:
+
         return subprocess.run(
             command,
             capture_output=True,
@@ -150,6 +151,7 @@ def format_timestamp(timestamp):
         return "N/A"
 
     try:
+
         return datetime.fromtimestamp(
             float(timestamp)
         ).strftime(
@@ -171,16 +173,6 @@ def format_timestamp(timestamp):
 def get_dhcp_leases():
     """
     Read dnsmasq DHCP lease information.
-
-    Returns:
-        {
-            ip: {
-                hostname,
-                mac,
-                expiry,
-                connected
-            }
-        }
     """
 
     lease_files = [
@@ -285,9 +277,12 @@ def get_arp_devices():
         ip = parts[0]
 
         try:
+
             if ipaddress.ip_address(ip).version != 4:
                 continue
+
         except ValueError:
+
             continue
 
         mac = None
@@ -295,8 +290,14 @@ def get_arp_devices():
 
         for index, value in enumerate(parts):
 
-            if value == "lladdr" and index + 1 < len(parts):
-                mac = parts[index + 1]
+            if (
+                value == "lladdr"
+                and index + 1 < len(parts)
+            ):
+
+                mac = parts[
+                    index + 1
+                ]
 
             if value in (
                 "REACHABLE",
@@ -306,6 +307,7 @@ def get_arp_devices():
                 "FAILED",
                 "INCOMPLETE",
             ):
+
                 state = value.lower()
 
         devices[ip] = {
@@ -341,6 +343,7 @@ def get_connected_devices():
             arp_device = arp[ip]
 
             if arp_device.get("mac"):
+
                 device["mac"] = (
                     arp_device["mac"]
                 )
@@ -361,8 +364,6 @@ def get_connected_devices():
 
         devices[ip] = device
 
-    # Include devices that appear in ARP
-    # but do not have a DHCP lease.
     for ip, arp_device in arp.items():
 
         if ip in devices:
@@ -393,7 +394,6 @@ def get_connected_devices():
                 ),
         }
 
-    # Add traffic information where possible.
     for ip, device in devices.items():
 
         device.setdefault(
@@ -505,6 +505,7 @@ def get_firewall_enabled():
             status,
             dict,
         ):
+
             return bool(
                 status.get(
                     "enabled",
@@ -516,6 +517,7 @@ def get_firewall_enabled():
             status,
             bool,
         ):
+
             return status
 
         return str(
@@ -532,6 +534,7 @@ def get_firewall_enabled():
         OSError,
         RuntimeError,
     ):
+
         return False
 
 
@@ -571,15 +574,16 @@ def get_adblock_status():
 
 def update_adblock():
     """
-    Download and install the latest Hagezi
-    Multi NORMAL blocklist.
+    Download and install the latest HaGeZi
+    Multi PRO blocklist.
     """
 
     if adblock_backend is None:
 
         return {
             "success": False,
-            "message": "Adblock backend is unavailable.",
+            "message":
+                "Adblock backend is unavailable.",
         }
 
     return adblock_backend.update_blocklist()
@@ -605,6 +609,86 @@ def disable_adblock():
         return False
 
     return adblock_backend.disable()
+
+
+def get_custom_blocked_domains():
+    """
+    Return custom domains added through the GUI.
+    """
+
+    if adblock_backend is None:
+        return []
+
+    try:
+
+        return (
+            adblock_backend
+            .get_custom_domains()
+        )
+
+    except Exception:
+
+        return []
+
+
+def add_custom_blocked_domain(domain):
+    """
+    Add a custom domain.
+    """
+
+    if adblock_backend is None:
+
+        return {
+            "success": False,
+            "message":
+                "Adblock backend is unavailable.",
+        }
+
+    try:
+
+        return (
+            adblock_backend
+            .add_custom_domain(
+                domain
+            )
+        )
+
+    except Exception as exc:
+
+        return {
+            "success": False,
+            "message": str(exc),
+        }
+
+
+def remove_custom_blocked_domain(domain):
+    """
+    Remove a custom domain.
+    """
+
+    if adblock_backend is None:
+
+        return {
+            "success": False,
+            "message":
+                "Adblock backend is unavailable.",
+        }
+
+    try:
+
+        return (
+            adblock_backend
+            .remove_custom_domain(
+                domain
+            )
+        )
+
+    except Exception as exc:
+
+        return {
+            "success": False,
+            "message": str(exc),
+        }
 
 
 # ============================================================
@@ -1015,7 +1099,6 @@ body {
 
 </div>
 
-
 <div class="main">
 
     <div class="header">
@@ -1023,12 +1106,14 @@ body {
         <h1>Dashboard</h1>
 
         <div class="status">
+
             <span
                 class="dot active"
                 id="gateway-dot"
             ></span>
 
             PiServer Online
+
         </div>
 
     </div>
@@ -1223,12 +1308,14 @@ body {
         <div class="service">
 
             <span>
+
                 <span
                     class="dot"
                     id="dhcp-dot"
                 ></span>
 
                 DHCP
+
             </span>
 
             <span
@@ -1244,12 +1331,14 @@ body {
         <div class="service">
 
             <span>
+
                 <span
                     class="dot"
                     id="dns-dot"
                 ></span>
 
                 DNS
+
             </span>
 
             <span
@@ -1265,12 +1354,14 @@ body {
         <div class="service">
 
             <span>
+
                 <span
                     class="dot"
                     id="nat-dot"
                 ></span>
 
                 NAT
+
             </span>
 
             <span
@@ -1286,12 +1377,14 @@ body {
         <div class="service">
 
             <span>
+
                 <span
                     class="dot"
                     id="firewall-dot"
                 ></span>
 
                 Firewall
+
             </span>
 
             <span
@@ -1307,12 +1400,14 @@ body {
         <div class="service">
 
             <span>
+
                 <span
                     class="dot"
                     id="vpn-dot"
                 ></span>
 
                 VPN
+
             </span>
 
             <span
@@ -1339,12 +1434,14 @@ body {
         <div class="service">
 
             <span>
+
                 <span
                     class="dot"
                     id="adblock-dot"
                 ></span>
 
-                Hagezi Multi NORMAL
+                HageZi Multi PRO
+
             </span>
 
             <span
@@ -1357,10 +1454,13 @@ body {
         </div>
 
         <div class="sub">
+
             Blocked domains:
+
             <strong id="adblock-count">
                 --
             </strong>
+
         </div>
 
     </div>
@@ -1414,8 +1514,10 @@ body {
 
 
     <div class="footer">
+
         PiServer automatically refreshes dashboard
         metrics every 3 seconds.
+
     </div>
 
 </div>
@@ -1556,16 +1658,16 @@ async function refreshDashboard() {
             );
 
         if (!response.ok) {
+
             throw new Error(
                 "Dashboard request failed"
             );
+
         }
 
         const data =
             await response.json();
 
-
-        // System
 
         const system =
             data.system || {};
@@ -1608,8 +1710,6 @@ async function refreshDashboard() {
             system.uptime_text ||
             "Unknown";
 
-
-        // Network
 
         const network =
             data.network || {};
@@ -1656,8 +1756,6 @@ async function refreshDashboard() {
                 : "N/A";
 
 
-        // Services
-
         const services =
             data.services || {};
 
@@ -1686,8 +1784,6 @@ async function refreshDashboard() {
             services.vpn?.enabled
         );
 
-
-        // Ad blocking
 
         const adblock =
             data.adblock || {};
@@ -1729,8 +1825,6 @@ async function refreshDashboard() {
                 ? adblock.blocked_domains
                 : "0";
 
-
-        // Devices
 
         renderDevices(
             data.devices || []
@@ -1954,9 +2048,6 @@ a {
 
 @app.route("/")
 def dashboard():
-    """
-    Main PiServer dashboard.
-    """
 
     return render_template_string(
         DASHBOARD_TEMPLATE
@@ -1965,9 +2056,6 @@ def dashboard():
 
 @app.route("/api/dashboard")
 def dashboard_api():
-    """
-    JSON API consumed by the dashboard.
-    """
 
     try:
 
@@ -1986,14 +2074,13 @@ def dashboard_api():
 
 @app.route("/device/<ip>")
 def device_details(ip):
-    """
-    Display details for one LAN device.
-    """
 
     try:
+
         ipaddress.ip_address(ip)
 
     except ValueError:
+
         return (
             "Invalid IP address",
             400,
@@ -2008,6 +2095,7 @@ def device_details(ip):
     for candidate in devices:
 
         if candidate.get("ip") == ip:
+
             device = candidate
             break
 
@@ -2055,9 +2143,11 @@ def network_page():
         try:
 
             if action == "enable":
+
                 enable_nat()
 
             elif action == "disable":
+
                 disable_nat()
 
         except Exception as exc:
@@ -2097,6 +2187,7 @@ def network_page():
         """
         <!DOCTYPE html>
         <html>
+
         <head>
 
         <meta
@@ -2196,12 +2287,15 @@ def network_page():
             <h2>NAT</h2>
 
             <p>
+
                 Status:
+
                 {% if nat.enabled %}
                     Enabled
                 {% else %}
                     Disabled
                 {% endif %}
+
             </p>
 
             <form method="post">
@@ -2240,81 +2334,8 @@ def network_page():
 
 
 # ============================================================
-# Module Pages
+# DHCP
 # ============================================================
-
-def simple_page(title, description):
-    """
-    Render a simple module page.
-    """
-
-    return render_template_string(
-        """
-        <!DOCTYPE html>
-        <html>
-
-        <head>
-
-        <meta
-            name="viewport"
-            content="width=device-width"
-        >
-
-        <title>{{ title }} - PiServer</title>
-
-        <style>
-
-        body {
-            background:#0f1115;
-            color:#f1f1f1;
-            font-family:Arial,sans-serif;
-            padding:30px;
-        }
-
-        .card {
-            background:#171a21;
-            border:1px solid #282c35;
-            border-radius:12px;
-            padding:20px;
-            max-width:900px;
-        }
-
-        a {
-            color:white;
-        }
-
-        </style>
-
-        </head>
-
-        <body>
-
-        <p>
-            <a href="/">
-                ← Dashboard
-            </a>
-        </p>
-
-        <div class="card">
-
-            <h1>
-                {{ title }}
-            </h1>
-
-            <p>
-                {{ description }}
-            </p>
-
-        </div>
-
-        </body>
-
-        </html>
-        """,
-        title=title,
-        description=description,
-    )
-
 
 @app.route("/dhcp")
 def dhcp_page():
@@ -2344,9 +2365,69 @@ def dns_page():
             "adblock_action"
         )
 
+        custom_action = request.form.get(
+            "custom_action"
+        )
+
         try:
 
-            if action == "update":
+            # ------------------------------------------------
+            # Custom blocklist actions
+            # ------------------------------------------------
+
+            if custom_action == "add":
+
+                domain = request.form.get(
+                    "domain",
+                    "",
+                )
+
+                result = (
+                    add_custom_blocked_domain(
+                        domain
+                    )
+                )
+
+                message = result.get(
+                    "message",
+                    "Custom domain operation completed.",
+                )
+
+                message_type = (
+                    "success"
+                    if result.get("success")
+                    else "error"
+                )
+
+            elif custom_action == "remove":
+
+                domain = request.form.get(
+                    "domain",
+                    "",
+                )
+
+                result = (
+                    remove_custom_blocked_domain(
+                        domain
+                    )
+                )
+
+                message = result.get(
+                    "message",
+                    "Custom domain operation completed.",
+                )
+
+                message_type = (
+                    "success"
+                    if result.get("success")
+                    else "error"
+                )
+
+            # ------------------------------------------------
+            # HaGeZi actions
+            # ------------------------------------------------
+
+            elif action == "update":
 
                 result = update_adblock()
 
@@ -2368,7 +2449,8 @@ def dns_page():
                 message = (
                     "Ad blocking enabled."
                     if success
-                    else "Failed to enable ad blocking."
+                    else
+                    "Failed to enable ad blocking."
                 )
 
                 message_type = (
@@ -2384,7 +2466,8 @@ def dns_page():
                 message = (
                     "Ad blocking disabled."
                     if success
-                    else "Failed to disable ad blocking."
+                    else
+                    "Failed to disable ad blocking."
                 )
 
                 message_type = (
@@ -2402,6 +2485,10 @@ def dns_page():
             message_type = "error"
 
     status = get_adblock_status()
+
+    custom_domains = (
+        get_custom_blocked_domains()
+    )
 
     dns_health = None
 
@@ -2509,6 +2596,51 @@ def dns_page():
             font-weight:600;
         }
 
+        .custom-domain-form {
+            display:flex;
+            gap:10px;
+            margin-bottom:20px;
+        }
+
+        .domain-input {
+            flex:1;
+            padding:10px;
+            background:#0f1115;
+            color:white;
+            border:1px solid #3a404c;
+            border-radius:7px;
+            min-width:0;
+        }
+
+        .custom-domain {
+            display:flex;
+            justify-content:space-between;
+            align-items:center;
+            gap:10px;
+            padding:12px 0;
+            border-bottom:1px solid #282c35;
+        }
+
+        .custom-domain:last-child {
+            border-bottom:none;
+        }
+
+        .domain-name {
+            word-break:break-all;
+        }
+
+        .remove-form {
+            margin:0;
+        }
+
+        @media (max-width:600px) {
+
+            .custom-domain-form {
+                flex-direction:column;
+            }
+
+        }
+
         </style>
 
         </head>
@@ -2522,6 +2654,7 @@ def dns_page():
         </p>
 
         <h1>DNS</h1>
+
 
         {% if message %}
 
@@ -2583,9 +2716,13 @@ def dns_page():
                     <span class="value">
 
                         {% if dns_health.latency_ms is not none %}
+
                             {{ dns_health.latency_ms }} ms
+
                         {% else %}
+
                             N/A
+
                         {% endif %}
 
                     </span>
@@ -2603,7 +2740,7 @@ def dns_page():
         </div>
 
 
-        <!-- AD BLOCKING -->
+        <!-- HAGEZI AD BLOCKING -->
 
         <div class="card">
 
@@ -2634,7 +2771,7 @@ def dns_page():
                 Blocklist
 
                 <span class="value">
-                    Hagezi Multi NORMAL
+                    HaGeZi Multi PRO
                 </span>
 
             </div>
@@ -2708,6 +2845,100 @@ def dns_page():
         </div>
 
 
+        <!-- CUSTOM BLOCKLIST -->
+
+        <div class="card">
+
+            <h2>Custom Blocklist</h2>
+
+            <p style="color:#888;">
+
+                Add your own domains to block.
+                You can enter a domain or paste a URL.
+
+            </p>
+
+
+            <form method="post">
+
+                <div class="custom-domain-form">
+
+                    <input
+                        class="domain-input"
+                        type="text"
+                        name="domain"
+                        placeholder="example.com"
+                        required
+                    >
+
+                    <button
+                        class="button"
+                        type="submit"
+                        name="custom_action"
+                        value="add"
+                    >
+                        Block Domain
+                    </button>
+
+                </div>
+
+            </form>
+
+
+            <h3>
+                Custom Blocked Domains
+            </h3>
+
+
+            {% if custom_domains %}
+
+                {% for domain in custom_domains %}
+
+                    <div class="custom-domain">
+
+                        <span class="domain-name">
+                            {{ domain }}
+                        </span>
+
+                        <form
+                            method="post"
+                            class="remove-form"
+                        >
+
+                            <input
+                                type="hidden"
+                                name="domain"
+                                value="{{ domain }}"
+                            >
+
+                            <button
+                                class="button"
+                                type="submit"
+                                name="custom_action"
+                                value="remove"
+                            >
+                                Remove
+                            </button>
+
+                        </form>
+
+                    </div>
+
+                {% endfor %}
+
+            {% else %}
+
+                <p style="color:#777;">
+
+                    No custom domains are blocked.
+
+                </p>
+
+            {% endif %}
+
+        </div>
+
+
         <!-- INFORMATION -->
 
         <div class="card">
@@ -2715,18 +2946,33 @@ def dns_page():
             <h2>How It Works</h2>
 
             <p>
+
                 PiServer uses dnsmasq to provide DNS
                 services to devices on the LAN.
+
             </p>
 
             <p>
+
                 Ad-blocking domains are provided by
-                the Hagezi Multi NORMAL blocklist.
+                the HaGeZi Multi PRO blocklist.
+
             </p>
 
             <p>
-                Blocked DNS requests are prevented
-                from resolving through the PiServer.
+
+                Custom domains are stored separately
+                from the HaGeZi blocklist.
+
+            </p>
+
+            <p>
+
+                When a custom domain is added or
+                removed, PiServer validates the
+                dnsmasq configuration and reloads
+                the DNS service automatically.
+
             </p>
 
         </div>
@@ -2739,8 +2985,13 @@ def dns_page():
         dns_health=dns_health,
         message=message,
         message_type=message_type,
+        custom_domains=custom_domains,
     )
 
+
+# ============================================================
+# Firewall
+# ============================================================
 
 @app.route("/firewall")
 def firewall_page():
@@ -2750,6 +3001,10 @@ def firewall_page():
         "PiServer nftables firewall controls."
     )
 
+
+# ============================================================
+# VPN
+# ============================================================
 
 @app.route("/vpn")
 def vpn_page():
@@ -2871,7 +3126,6 @@ def monitoring_page():
         </div>
 
         </body>
-
         </html>
         """,
         data=data,
@@ -2895,12 +3149,14 @@ def logs_page():
                 gateway_logging,
                 "get_recent_logs",
             ):
+
                 logs = (
                     gateway_logging
                     .get_recent_logs()
                 )
 
         except Exception:
+
             logs = []
 
     return render_template_string(
@@ -2979,3 +3235,79 @@ def logs_page():
         logs=logs,
     )
 
+
+# ============================================================
+# Shared Simple Page
+# ============================================================
+
+def simple_page(title, description):
+    """
+    Render a simple module page.
+    """
+
+    return render_template_string(
+        """
+        <!DOCTYPE html>
+        <html>
+
+        <head>
+
+        <meta
+            name="viewport"
+            content="width=device-width"
+        >
+
+        <title>{{ title }} - PiServer</title>
+
+        <style>
+
+        body {
+            background:#0f1115;
+            color:#f1f1f1;
+            font-family:Arial,sans-serif;
+            padding:30px;
+        }
+
+        .card {
+            background:#171a21;
+            border:1px solid #282c35;
+            border-radius:12px;
+            padding:20px;
+            max-width:900px;
+        }
+
+        a {
+            color:white;
+        }
+
+        </style>
+
+        </head>
+
+        <body>
+
+        <p>
+            <a href="/">
+                ← Dashboard
+            </a>
+        </p>
+
+        <div class="card">
+
+            <h1>
+                {{ title }}
+            </h1>
+
+            <p>
+                {{ description }}
+            </p>
+
+        </div>
+
+        </body>
+
+        </html>
+        """,
+        title=title,
+        description=description,
+    )
