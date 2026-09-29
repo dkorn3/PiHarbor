@@ -1,3 +1,4 @@
+
 """
 PiServer ad blocking.
 
@@ -65,7 +66,6 @@ def _run(command, timeout=30):
     """
 
     try:
-
         return subprocess.run(
             command,
             capture_output=True,
@@ -78,7 +78,6 @@ def _run(command, timeout=30):
         OSError,
         subprocess.TimeoutExpired,
     ):
-
         return None
 
 
@@ -114,7 +113,7 @@ def _count_blocklist_entries(path):
 
     and:
 
-        address=/example.com/
+        address=/example.com/0.0.0.0
     """
 
     if not os.path.exists(path):
@@ -123,7 +122,6 @@ def _count_blocklist_entries(path):
     count = 0
 
     try:
-
         with open(
             path,
             "r",
@@ -132,7 +130,6 @@ def _count_blocklist_entries(path):
         ) as file:
 
             for line in file:
-
                 line = line.strip()
 
                 if (
@@ -142,7 +139,6 @@ def _count_blocklist_entries(path):
                     count += 1
 
     except OSError:
-
         return 0
 
     return count
@@ -165,13 +161,11 @@ def get_blocklist_size():
     """
 
     try:
-
         return os.path.getsize(
             BLOCKLIST_PATH
         )
 
     except OSError:
-
         return 0
 
 
@@ -182,13 +176,11 @@ def get_last_update():
     """
 
     try:
-
         return os.path.getmtime(
             BLOCKLIST_PATH
         )
 
     except OSError:
-
         return None
 
 
@@ -223,7 +215,6 @@ def download_blocklist(
     """
 
     try:
-
         request = urllib.request.Request(
             BLOCKLIST_URL,
             headers={
@@ -256,7 +247,6 @@ def download_blocklist(
         urllib.error.URLError,
         urllib.error.HTTPError,
     ):
-
         return False
 
 
@@ -273,7 +263,6 @@ def _validate_content(
     """
 
     try:
-
         size = os.path.getsize(path)
 
         if size < MIN_FILE_SIZE:
@@ -317,7 +306,6 @@ def _validate_content(
         return True
 
     except OSError:
-
         return False
 
 
@@ -384,7 +372,6 @@ def _backup_existing_blocklist():
         return True
 
     try:
-
         shutil.copy2(
             BLOCKLIST_PATH,
             BACKUP_BLOCKLIST_PATH,
@@ -393,7 +380,6 @@ def _backup_existing_blocklist():
         return True
 
     except OSError:
-
         return False
 
 
@@ -408,7 +394,6 @@ def _restore_backup():
         return False
 
     try:
-
         shutil.copy2(
             BACKUP_BLOCKLIST_PATH,
             BLOCKLIST_PATH,
@@ -417,7 +402,6 @@ def _restore_backup():
         return True
 
     except OSError:
-
         return False
 
 
@@ -427,7 +411,6 @@ def _remove_backup():
     """
 
     try:
-
         if os.path.exists(
             BACKUP_BLOCKLIST_PATH
         ):
@@ -452,7 +435,6 @@ def install_blocklist(
     temporary_install_path = None
 
     try:
-
         os.makedirs(
             os.path.dirname(
                 BLOCKLIST_PATH
@@ -470,9 +452,7 @@ def install_blocklist(
             delete=False,
         ) as file:
 
-            temporary_install_path = (
-                file.name
-            )
+            temporary_install_path = file.name
 
             with open(
                 source,
@@ -494,7 +474,6 @@ def install_blocklist(
         return True
 
     except OSError:
-
         return False
 
     finally:
@@ -538,7 +517,6 @@ def reload_dnsmasq():
         result is not None
         and result.returncode == 0
     ):
-
         return True
 
     result = _run(
@@ -554,7 +532,6 @@ def reload_dnsmasq():
         result is not None
         and result.returncode == 0
     ):
-
         return True
 
     return False
@@ -672,7 +649,7 @@ def update_blocklist():
         "success": True,
         "stage": "complete",
         "message":
-            "HageZi Multi PRO blocklist "
+            "HaGeZi Multi PRO blocklist "
             "updated successfully.",
         "blocked_domains":
             get_blocked_domain_count(),
@@ -699,7 +676,6 @@ def disable():
     if not os.path.exists(
         BLOCKLIST_PATH
     ):
-
         return True
 
     backup_created = False
@@ -718,7 +694,6 @@ def disable():
         )
 
     except OSError:
-
         return False
 
     if validate_full_dnsmasq_config():
@@ -760,7 +735,6 @@ def enable():
         )
 
     if not validate_full_dnsmasq_config():
-
         return False
 
     return reload_dnsmasq()
@@ -799,13 +773,11 @@ def _normalize_domain(domain):
     domain = domain.rstrip(".")
 
     if not domain:
-
         raise ValueError(
             "Domain cannot be empty."
         )
 
     if len(domain) > 253:
-
         raise ValueError(
             "Domain is too long."
         )
@@ -813,7 +785,6 @@ def _normalize_domain(domain):
     labels = domain.split(".")
 
     if len(labels) < 2:
-
         raise ValueError(
             "Please enter a domain such as example.com."
         )
@@ -821,13 +792,11 @@ def _normalize_domain(domain):
     for label in labels:
 
         if not label:
-
             raise ValueError(
                 "Invalid domain."
             )
 
         if len(label) > 63:
-
             raise ValueError(
                 "Invalid domain."
             )
@@ -836,7 +805,6 @@ def _normalize_domain(domain):
             label.startswith("-")
             or label.endswith("-")
         ):
-
             raise ValueError(
                 "Invalid domain."
             )
@@ -846,7 +814,6 @@ def _normalize_domain(domain):
             or character == "-"
             for character in label
         ):
-
             raise ValueError(
                 "Invalid domain."
             )
@@ -857,12 +824,19 @@ def _normalize_domain(domain):
 def get_custom_domains():
     """
     Return all custom blocked domains.
+
+    Supports:
+
+        address=/example.com/0.0.0.0
+
+    and also the older:
+
+        local=/example.com/
     """
 
     if not os.path.exists(
         CUSTOM_BLOCKLIST_PATH
     ):
-
         return []
 
     domains = []
@@ -885,6 +859,31 @@ def get_custom_domains():
                 if line.startswith("#"):
                     continue
 
+                # New format:
+                # address=/example.com/0.0.0.0
+                if line.startswith("address=/"):
+
+                    value = line[
+                        len("address=/"):
+                    ]
+
+                    suffix = "/0.0.0.0"
+
+                    if value.endswith(suffix):
+
+                        domain = value[
+                            : -len(suffix)
+                        ]
+
+                        if domain:
+                            domains.append(
+                                domain
+                            )
+
+                        continue
+
+                # Older format:
+                # local=/example.com/
                 if line.startswith("local=/"):
 
                     domain = line[
@@ -911,6 +910,9 @@ def get_custom_domains():
 def _write_custom_domains(domains):
     """
     Write custom domains to the dnsmasq config.
+
+    Each custom domain is blocked by returning
+    0.0.0.0.
     """
 
     try:
@@ -939,7 +941,7 @@ def _write_custom_domains(domains):
             for domain in domains:
 
                 file.write(
-                    f"local=/{domain}/\n"
+                    f"address=/{domain}/0.0.0.0\n"
                 )
 
         return True
@@ -952,6 +954,15 @@ def _write_custom_domains(domains):
 def add_custom_domain(domain):
     """
     Add a domain to the custom blocklist.
+
+    The GUI only needs to provide the domain name.
+    For example:
+
+        espn.com
+
+    The resulting dnsmasq entry is:
+
+        address=/espn.com/0.0.0.0
     """
 
     try:
@@ -1164,3 +1175,4 @@ if __name__ == "__main__":
     result = update_blocklist()
 
     print(result)
+
