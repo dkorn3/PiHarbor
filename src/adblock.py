@@ -4,11 +4,11 @@ PiServer ad blocking.
 Downloads and manages the HaGeZi Multi PRO DNS blocklist
 for dnsmasq.
 
-The downloaded blocklist is installed as a dnsmasq
-configuration fragment.
+Also manages a separate custom blocklist that can be
+controlled from the PiServer GUI.
 
-This module does not modify firewall rules or DNS
-upstream configuration.
+The downloaded HaGeZi blocklist and custom blocklist
+are kept separate.
 """
 
 import os
@@ -18,33 +18,32 @@ import tempfile
 import time
 import urllib.error
 import urllib.request
+from urllib.parse import urlparse
 
 
 # ============================================================
 # Configuration
 # ============================================================
 
-# Current Hagezi dnsmasq blocklist.
-#
-# This URL currently returns HaGeZi Multi PRO.
 BLOCKLIST_URL = (
     "https://cdn.jsdelivr.net/gh/hagezi/"
     "dns-blocklists@latest/dnsmasq/pro.txt"
 )
 
-# Installed dnsmasq configuration.
 BLOCKLIST_PATH = (
     "/etc/dnsmasq.d/pi-gateway-adblock.conf"
 )
 
-# Temporary downloaded file.
 TEMP_BLOCKLIST_PATH = (
     "/tmp/pi-gateway-adblock.conf"
 )
 
-# Temporary backup used during installation.
 BACKUP_BLOCKLIST_PATH = (
     "/tmp/pi-gateway-adblock.conf.backup"
+)
+
+CUSTOM_BLOCKLIST_PATH = (
+    "/etc/dnsmasq.d/pi-gateway-custom.conf"
 )
 
 DNSMASQ_SERVICE = "dnsmasq"
@@ -63,9 +62,6 @@ MIN_DOMAIN_ENTRIES = 100
 def _run(command, timeout=30):
     """
     Run a system command.
-
-    Returns:
-        subprocess.CompletedProcess
     """
 
     try:
@@ -87,12 +83,12 @@ def _run(command, timeout=30):
 
 
 # ============================================================
-# Status
+# HageZi Status
 # ============================================================
 
 def is_enabled():
     """
-    Return True when the blocklist is installed.
+    Return True when the HaGeZi blocklist is installed.
     """
 
     return os.path.exists(
@@ -102,7 +98,7 @@ def is_enabled():
 
 def get_blocklist_path():
     """
-    Return the installed blocklist path.
+    Return the installed HaGeZi blocklist path.
     """
 
     return BLOCKLIST_PATH
@@ -112,15 +108,13 @@ def _count_blocklist_entries(path):
     """
     Count dnsmasq blocklist entries.
 
-    Hagezi may use either:
+    Supports both:
 
         local=/example.com/
 
-    or:
+    and:
 
         address=/example.com/
-
-    Both are supported.
     """
 
     if not os.path.exists(path):
@@ -156,8 +150,8 @@ def _count_blocklist_entries(path):
 
 def get_blocked_domain_count():
     """
-    Return the number of domains in the installed
-    blocklist.
+    Return number of domains in the installed
+    HaGeZi blocklist.
     """
 
     return _count_blocklist_entries(
@@ -167,7 +161,7 @@ def get_blocked_domain_count():
 
 def get_blocklist_size():
     """
-    Return installed blocklist size in bytes.
+    Return installed HaGeZi blocklist size.
     """
 
     try:
@@ -183,7 +177,7 @@ def get_blocklist_size():
 
 def get_last_update():
     """
-    Return the installed blocklist modification
+    Return installed HaGeZi blocklist modification
     timestamp.
     """
 
@@ -218,18 +212,14 @@ def get_status():
 
 
 # ============================================================
-# Download
+# Download HaGeZi
 # ============================================================
 
 def download_blocklist(
     destination=TEMP_BLOCKLIST_PATH,
 ):
     """
-    Download the Hagezi blocklist.
-
-    Returns:
-        True on success
-        False on failure
+    Download the current HaGeZi blocklist.
     """
 
     try:
@@ -278,8 +268,8 @@ def _validate_content(
     path=TEMP_BLOCKLIST_PATH,
 ):
     """
-    Validate that the downloaded file appears
-    to be a real dnsmasq blocklist.
+    Validate that a blocklist file appears to be
+    a real HaGeZi dnsmasq blocklist.
     """
 
     try:
@@ -290,7 +280,6 @@ def _validate_content(
             return False
 
         domain_count = 0
-
         has_hagezi_header = False
 
         with open(
@@ -340,10 +329,7 @@ def validate_blocklist(
     path=TEMP_BLOCKLIST_PATH,
 ):
     """
-    Ask dnsmasq to validate the blocklist file.
-
-    Returns:
-        True when dnsmasq accepts the file.
+    Validate a downloaded blocklist with dnsmasq.
     """
 
     if not os.path.exists(path):
@@ -367,9 +353,6 @@ def validate_blocklist(
 def validate_full_dnsmasq_config():
     """
     Validate the complete dnsmasq configuration.
-
-    This is performed after the blocklist has been
-    installed.
     """
 
     result = _run(
@@ -392,11 +375,7 @@ def validate_full_dnsmasq_config():
 
 def _backup_existing_blocklist():
     """
-    Backup the currently installed blocklist.
-
-    Returns:
-        True if there is no existing file or backup
-        succeeds.
+    Backup the current HaGeZi blocklist.
     """
 
     if not os.path.exists(
@@ -420,7 +399,7 @@ def _backup_existing_blocklist():
 
 def _restore_backup():
     """
-    Restore the previous blocklist.
+    Restore the previous HaGeZi blocklist.
     """
 
     if not os.path.exists(
@@ -444,7 +423,7 @@ def _restore_backup():
 
 def _remove_backup():
     """
-    Remove the temporary backup.
+    Remove temporary backup.
     """
 
     try:
@@ -464,11 +443,7 @@ def install_blocklist(
     source=TEMP_BLOCKLIST_PATH,
 ):
     """
-    Atomically install the downloaded blocklist.
-
-    Returns:
-        True on success.
-        False on failure.
+    Atomically install the downloaded HaGeZi list.
     """
 
     if not os.path.exists(source):
@@ -547,11 +522,7 @@ def reload_dnsmasq():
     """
     Reload dnsmasq.
 
-    Reload is attempted first. If reload fails,
-    restart is attempted.
-
-    Returns:
-        True if dnsmasq successfully reloads/restarts.
+    If reload fails, restart is attempted.
     """
 
     result = _run(
@@ -590,23 +561,16 @@ def reload_dnsmasq():
 
 
 # ============================================================
-# Update
+# Update HaGeZi
 # ============================================================
 
 def update_blocklist():
     """
     Download, validate, install, and activate
-    the latest Hagezi blocklist.
-
-    The previous blocklist is restored if the
-    new configuration causes dnsmasq to fail.
+    the latest HaGeZi blocklist.
     """
 
     start_time = time.monotonic()
-
-    # --------------------------------------------------------
-    # Download
-    # --------------------------------------------------------
 
     if not download_blocklist():
 
@@ -614,12 +578,8 @@ def update_blocklist():
             "success": False,
             "stage": "download",
             "message":
-                "Failed to download the Hagezi blocklist.",
+                "Failed to download the HaGeZi blocklist.",
         }
-
-    # --------------------------------------------------------
-    # Content validation
-    # --------------------------------------------------------
 
     if not _validate_content():
 
@@ -630,10 +590,6 @@ def update_blocklist():
                 "Downloaded blocklist failed content validation.",
         }
 
-    # --------------------------------------------------------
-    # Validate downloaded blocklist with dnsmasq
-    # --------------------------------------------------------
-
     if not validate_blocklist():
 
         return {
@@ -643,10 +599,6 @@ def update_blocklist():
                 "dnsmasq rejected the downloaded blocklist.",
         }
 
-    # --------------------------------------------------------
-    # Backup existing list
-    # --------------------------------------------------------
-
     if not _backup_existing_blocklist():
 
         return {
@@ -655,10 +607,6 @@ def update_blocklist():
             "message":
                 "Failed to back up the existing blocklist.",
         }
-
-    # --------------------------------------------------------
-    # Install new list
-    # --------------------------------------------------------
 
     if not install_blocklist():
 
@@ -670,10 +618,6 @@ def update_blocklist():
             "message":
                 "Failed to install the blocklist.",
         }
-
-    # --------------------------------------------------------
-    # Validate complete dnsmasq configuration
-    # --------------------------------------------------------
 
     if not validate_full_dnsmasq_config():
 
@@ -688,15 +632,10 @@ def update_blocklist():
                 "Previous blocklist restored.",
         }
 
-    # --------------------------------------------------------
-    # Reload dnsmasq
-    # --------------------------------------------------------
-
     if not reload_dnsmasq():
 
         _restore_backup()
 
-        # Try to restore the known-good configuration.
         validate_full_dnsmasq_config()
         reload_dnsmasq()
 
@@ -709,10 +648,6 @@ def update_blocklist():
                 "dnsmasq failed to reload with the new blocklist. "
                 "Previous blocklist restored.",
         }
-
-    # --------------------------------------------------------
-    # Success
-    # --------------------------------------------------------
 
     _remove_backup()
 
@@ -737,7 +672,7 @@ def update_blocklist():
         "success": True,
         "stage": "complete",
         "message":
-            "Hagezi Multi PRO blocklist "
+            "HageZi Multi PRO blocklist "
             "updated successfully.",
         "blocked_domains":
             get_blocked_domain_count(),
@@ -756,11 +691,9 @@ def update_blocklist():
 
 def disable():
     """
-    Disable ad blocking by removing the installed
-    blocklist and reloading dnsmasq.
+    Disable HaGeZi ad blocking.
 
-    If dnsmasq fails to reload, the blocklist
-    is restored.
+    The custom blocklist remains installed.
     """
 
     if not os.path.exists(
@@ -796,7 +729,6 @@ def disable():
 
             return True
 
-    # Something went wrong.
     if backup_created:
 
         _restore_backup()
@@ -811,13 +743,7 @@ def disable():
 
 def enable():
     """
-    Enable ad blocking.
-
-    If a blocklist already exists, simply reload
-    dnsmasq.
-
-    If no blocklist exists, download the latest
-    blocklist.
+    Enable HaGeZi ad blocking.
     """
 
     if not os.path.exists(
@@ -841,6 +767,347 @@ def enable():
 
 
 # ============================================================
+# Custom Blocklist
+# ============================================================
+
+def _normalize_domain(domain):
+    """
+    Normalize and validate a domain.
+
+    Users may enter either:
+
+        example.com
+
+    or:
+
+        https://example.com/something
+    """
+
+    domain = str(domain).strip().lower()
+
+    if "://" in domain:
+
+        parsed = urlparse(domain)
+
+        domain = parsed.hostname or ""
+
+    else:
+
+        # Remove accidental path/query data.
+        domain = domain.split("/")[0]
+
+    domain = domain.rstrip(".")
+
+    if not domain:
+
+        raise ValueError(
+            "Domain cannot be empty."
+        )
+
+    if len(domain) > 253:
+
+        raise ValueError(
+            "Domain is too long."
+        )
+
+    labels = domain.split(".")
+
+    if len(labels) < 2:
+
+        raise ValueError(
+            "Please enter a domain such as example.com."
+        )
+
+    for label in labels:
+
+        if not label:
+
+            raise ValueError(
+                "Invalid domain."
+            )
+
+        if len(label) > 63:
+
+            raise ValueError(
+                "Invalid domain."
+            )
+
+        if (
+            label.startswith("-")
+            or label.endswith("-")
+        ):
+
+            raise ValueError(
+                "Invalid domain."
+            )
+
+        if not all(
+            character.isalnum()
+            or character == "-"
+            for character in label
+        ):
+
+            raise ValueError(
+                "Invalid domain."
+            )
+
+    return domain
+
+
+def get_custom_domains():
+    """
+    Return all custom blocked domains.
+    """
+
+    if not os.path.exists(
+        CUSTOM_BLOCKLIST_PATH
+    ):
+
+        return []
+
+    domains = []
+
+    try:
+
+        with open(
+            CUSTOM_BLOCKLIST_PATH,
+            "r",
+            encoding="utf-8",
+        ) as file:
+
+            for line in file:
+
+                line = line.strip()
+
+                if not line:
+                    continue
+
+                if line.startswith("#"):
+                    continue
+
+                if line.startswith("local=/"):
+
+                    domain = line[
+                        len("local=/"):
+                    ]
+
+                    if domain.endswith("/"):
+                        domain = domain[:-1]
+
+                    if domain:
+                        domains.append(
+                            domain
+                        )
+
+    except OSError:
+
+        return []
+
+    return sorted(
+        set(domains)
+    )
+
+
+def _write_custom_domains(domains):
+    """
+    Write custom domains to the dnsmasq config.
+    """
+
+    try:
+
+        os.makedirs(
+            os.path.dirname(
+                CUSTOM_BLOCKLIST_PATH
+            ),
+            exist_ok=True,
+        )
+
+        with open(
+            CUSTOM_BLOCKLIST_PATH,
+            "w",
+            encoding="utf-8",
+        ) as file:
+
+            file.write(
+                "# PiServer custom blocklist\n"
+            )
+
+            file.write(
+                "# Managed through the PiServer GUI\n\n"
+            )
+
+            for domain in domains:
+
+                file.write(
+                    f"local=/{domain}/\n"
+                )
+
+        return True
+
+    except OSError:
+
+        return False
+
+
+def add_custom_domain(domain):
+    """
+    Add a domain to the custom blocklist.
+    """
+
+    try:
+
+        domain = _normalize_domain(
+            domain
+        )
+
+    except ValueError as exc:
+
+        return {
+            "success": False,
+            "message": str(exc),
+        }
+
+    domains = get_custom_domains()
+
+    if domain in domains:
+
+        return {
+            "success": False,
+            "message":
+                f"{domain} is already blocked.",
+        }
+
+    domains.append(domain)
+    domains.sort()
+
+    if not _write_custom_domains(
+        domains
+    ):
+
+        return {
+            "success": False,
+            "message":
+                "Failed to save custom blocklist.",
+        }
+
+    if not validate_full_dnsmasq_config():
+
+        # Restore previous configuration.
+        domains.remove(domain)
+
+        _write_custom_domains(
+            domains
+        )
+
+        return {
+            "success": False,
+            "message":
+                "dnsmasq rejected the custom domain.",
+        }
+
+    if not reload_dnsmasq():
+
+        # Restore previous configuration.
+        domains.remove(domain)
+
+        _write_custom_domains(
+            domains
+        )
+
+        validate_full_dnsmasq_config()
+        reload_dnsmasq()
+
+        return {
+            "success": False,
+            "message":
+                "dnsmasq failed to reload.",
+        }
+
+    return {
+        "success": True,
+        "message":
+            f"{domain} is now blocked.",
+        "domain": domain,
+    }
+
+
+def remove_custom_domain(domain):
+    """
+    Remove a domain from the custom blocklist.
+    """
+
+    try:
+
+        domain = _normalize_domain(
+            domain
+        )
+
+    except ValueError as exc:
+
+        return {
+            "success": False,
+            "message": str(exc),
+        }
+
+    domains = get_custom_domains()
+
+    if domain not in domains:
+
+        return {
+            "success": False,
+            "message":
+                f"{domain} is not in the custom blocklist.",
+        }
+
+    old_domains = list(domains)
+
+    domains.remove(domain)
+
+    if not _write_custom_domains(
+        domains
+    ):
+
+        return {
+            "success": False,
+            "message":
+                "Failed to update custom blocklist.",
+        }
+
+    if not validate_full_dnsmasq_config():
+
+        _write_custom_domains(
+            old_domains
+        )
+
+        return {
+            "success": False,
+            "message":
+                "dnsmasq rejected the updated blocklist.",
+        }
+
+    if not reload_dnsmasq():
+
+        _write_custom_domains(
+            old_domains
+        )
+
+        validate_full_dnsmasq_config()
+        reload_dnsmasq()
+
+        return {
+            "success": False,
+            "message":
+                "dnsmasq failed to reload.",
+        }
+
+    return {
+        "success": True,
+        "message":
+            f"{domain} was removed from the blocklist.",
+    }
+
+
+# ============================================================
 # Testing
 # ============================================================
 
@@ -856,7 +1123,7 @@ def test():
         return {
             "success": False,
             "message":
-                "Adblock list is not installed.",
+                "HaGeZi blocklist is not installed.",
             "blocked_domains": 0,
         }
 
@@ -877,6 +1144,8 @@ def test():
         "success": success,
         "blocked_domains":
             get_blocked_domain_count(),
+        "custom_domains":
+            len(get_custom_domains()),
         "message": (
             "Adblock configuration is valid."
             if success
