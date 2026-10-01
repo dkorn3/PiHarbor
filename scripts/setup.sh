@@ -1,3 +1,5 @@
+#!/bin/bash
+
 set -e
 
 echo "================================="
@@ -5,14 +7,20 @@ echo "       PiServer Setup"
 echo "================================="
 echo
 
+# ============================================================
 # Require root
+# ============================================================
+
 if [ "$EUID" -ne 0 ]; then
     echo "Please run this script with sudo:"
     echo "  sudo ./scripts/setup.sh"
     exit 1
 fi
 
+# ============================================================
 # Find repository
+# ============================================================
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 
@@ -20,7 +28,10 @@ echo "PiServer repository:"
 echo "  $REPO_DIR"
 echo
 
+# ============================================================
 # Ask for installation path
+# ============================================================
+
 read -rp "Installation path [$REPO_DIR]: " INSTALL_DIR
 INSTALL_DIR="${INSTALL_DIR:-$REPO_DIR}"
 
@@ -29,50 +40,104 @@ echo "Installing PiServer to:"
 echo "  $INSTALL_DIR"
 echo
 
-# Copy repository if a different installation path was selected
+# ============================================================
+# Copy repository if needed
+# ============================================================
+
 if [ "$INSTALL_DIR" != "$REPO_DIR" ]; then
+
     mkdir -p "$INSTALL_DIR"
 
     echo "Copying PiServer files..."
 
     cp -a "$REPO_DIR"/. "$INSTALL_DIR"/
+
 fi
 
-# Verify required files
+# ============================================================
+# Verify required PiServer files
+# ============================================================
+
 echo
 echo "Checking PiServer files..."
 
-for FILE in \
-    "configs/hostapd.conf.example" \
-    "configs/dnsmasq.conf.example" \
-    "configs/99-piserver-router.conf" \
+REQUIRED_FILES=(
+    "requirements.txt"
+    "configs/hostapd.conf.example"
+    "configs/dnsmasq.conf.example"
+    "configs/99-piserver-router.conf"
     "src/network_gui.py"
-do
+)
+
+for FILE in "${REQUIRED_FILES[@]}"; do
+
     if [ ! -f "$INSTALL_DIR/$FILE" ]; then
-        echo "ERROR: Missing $INSTALL_DIR/$FILE"
+        echo "ERROR: Missing:"
+        echo "  $INSTALL_DIR/$FILE"
         exit 1
     fi
+
 done
 
 echo "PiServer files OK."
 
-# Install packages
+# ============================================================
+# Install system packages
+# ============================================================
+
 echo
-echo "Installing required packages..."
+echo "Installing required system packages..."
 
 apt-get update
 
 apt-get install -y \
-    hostapd \
-    dnsmasq \
-    nftables \
     python3 \
     python3-pip \
     python3-venv \
+    python3-flask \
+    hostapd \
+    dnsmasq \
+    nftables \
     iproute2 \
-    network-manager
+    network-manager \
+    iw \
+    rfkill \
+    curl \
+    procps \
+    iputils-ping
 
+echo
+echo "System packages installed."
+
+# ============================================================
+# Install Python requirements
+# ============================================================
+
+echo
+echo "Installing Python requirements..."
+
+python3 -m pip install \
+    --break-system-packages \
+    -r "$INSTALL_DIR/requirements.txt"
+
+echo
+echo "Python requirements installed."
+
+# ============================================================
+# Verify Flask
+# ============================================================
+
+echo
+echo "Checking Flask..."
+
+python3 -c "import flask; print('Flask:', flask.__version__)"
+
+echo "Flask OK."
+
+# ============================================================
 # Configure NetworkManager
+# ============================================================
+
 echo
 echo "Configuring NetworkManager..."
 
@@ -84,17 +149,24 @@ unmanaged-devices=interface-name:wlan0
 EOF
 
 echo "NetworkManager configuration written."
-echo "wlan0 will be unmanaged after NetworkManager reload/reboot."
+
+echo "wlan0 will be unmanaged by NetworkManager."
 echo "eth0 remains managed for WAN and SSH access."
 
-# Disable standalone wpa_supplicant so it does not compete with hostapd.
+# ============================================================
+# Disable wpa_supplicant
+# ============================================================
+
 echo
 echo "Configuring wpa_supplicant..."
 
 systemctl disable --now wpa_supplicant.service 2>/dev/null || true
 systemctl disable --now wpa_supplicant@wlan0.service 2>/dev/null || true
 
+# ============================================================
 # Configure hostapd
+# ============================================================
+
 echo
 echo "Configuring hostapd..."
 
@@ -102,23 +174,40 @@ read -rsp "Enter PiServer Wi-Fi password: " WIFI_PASSWORD
 echo
 
 if [ -z "$WIFI_PASSWORD" ]; then
+    echo
     echo "ERROR: Wi-Fi password cannot be empty."
+    exit 1
+fi
+
+if [ "${#WIFI_PASSWORD}" -lt 8 ]; then
+    echo
+    echo "ERROR: Wi-Fi password must be at least 8 characters."
     exit 1
 fi
 
 HOSTAPD_CONFIG="/etc/hostapd/hostapd.conf"
 
-cp "$INSTALL_DIR/configs/hostapd.conf.example" "$HOSTAPD_CONFIG"
+cp \
+    "$INSTALL_DIR/configs/hostapd.conf.example" \
+    "$HOSTAPD_CONFIG"
 
-sed -i "s|^wpa_passphrase=.*|wpa_passphrase=$WIFI_PASSWORD|" "$HOSTAPD_CONFIG"
+sed -i \
+    "s|^wpa_passphrase=.*|wpa_passphrase=$WIFI_PASSWORD|" \
+    "$HOSTAPD_CONFIG"
 
 chmod 600 "$HOSTAPD_CONFIG"
 
+echo "hostapd configured."
+
+# ============================================================
 # Configure dnsmasq
+# ============================================================
+
 echo
 echo "Configuring dnsmasq..."
 
-cp "$INSTALL_DIR/configs/dnsmasq.conf.example" \
+cp \
+    "$INSTALL_DIR/configs/dnsmasq.conf.example" \
     /etc/dnsmasq.d/pi-gateway.conf
 
 echo
@@ -126,16 +215,32 @@ echo "Testing dnsmasq configuration..."
 
 dnsmasq --test
 
+echo "dnsmasq configuration OK."
+
+# ============================================================
 # Configure IPv4 forwarding
+# ============================================================
+
 echo
 echo "Configuring IPv4 forwarding..."
 
-cp "$INSTALL_DIR/configs/99-piserver-router.conf" \
+cp \
+    "$INSTALL_DIR/configs/99-piserver-router.conf" \
     /etc/sysctl.d/99-piserver-router.conf
 
 sysctl --system
 
+if [ "$(cat /proc/sys/net/ipv4/ip_forward)" != "1" ]; then
+    echo "ERROR: IPv4 forwarding is not enabled."
+    exit 1
+fi
+
+echo "IPv4 forwarding enabled."
+
+# ============================================================
 # Configure PiServer LAN service
+# ============================================================
+
 echo
 echo "Installing PiServer LAN service..."
 
@@ -155,14 +260,17 @@ RemainAfterExit=yes
 WantedBy=multi-user.target
 EOF
 
+# ============================================================
 # Configure PiServer GUI service
+# ============================================================
+
 echo
 echo "Installing PiServer GUI service..."
 
 cat > /etc/systemd/system/pi-gateway.service <<EOF
 [Unit]
-Description=Raspberry Pi Network Gateway GUI
-After=network-online.target
+Description=PiServer Network Gateway GUI
+After=network-online.target piserver-lan.service
 Wants=network-online.target
 
 [Service]
@@ -177,13 +285,19 @@ RestartSec=3
 WantedBy=multi-user.target
 EOF
 
+# ============================================================
 # Reload systemd
+# ============================================================
+
 echo
 echo "Reloading systemd..."
 
 systemctl daemon-reload
 
+# ============================================================
 # Enable services
+# ============================================================
+
 echo
 echo "Enabling services..."
 
@@ -194,7 +308,10 @@ systemctl enable dnsmasq
 systemctl enable piserver-lan.service
 systemctl enable pi-gateway.service
 
+# ============================================================
 # Start services
+# ============================================================
+
 echo
 echo "Starting services..."
 
@@ -203,7 +320,74 @@ systemctl restart hostapd
 systemctl restart dnsmasq
 systemctl restart pi-gateway.service
 
+# ============================================================
+# Verify services
+# ============================================================
+
+echo
+echo "Checking services..."
+
+SERVICES=(
+    "hostapd"
+    "dnsmasq"
+    "piserver-lan.service"
+    "pi-gateway.service"
+)
+
+for SERVICE in "${SERVICES[@]}"; do
+
+    if systemctl is-active --quiet "$SERVICE"; then
+        echo "  OK: $SERVICE"
+    else
+        echo "  ERROR: $SERVICE failed"
+        echo
+        echo "Recent logs:"
+        journalctl -u "$SERVICE" -n 20 --no-pager
+        exit 1
+    fi
+
+done
+
+# ============================================================
+# Verify wlan0
+# ============================================================
+
+echo
+echo "Checking wlan0..."
+
+if ! ip link show wlan0 >/dev/null 2>&1; then
+    echo "ERROR: wlan0 does not exist."
+    exit 1
+fi
+
+if ! ip -4 addr show wlan0 | grep -q "192.168.50.1/24"; then
+    echo "ERROR: wlan0 does not have 192.168.50.1/24."
+    exit 1
+fi
+
+echo "wlan0 OK."
+
+# ============================================================
+# Verify GUI
+# ============================================================
+
+echo
+echo "Checking PiServer GUI..."
+
+if ! ss -lntp | grep -q ":80 "; then
+    echo "ERROR: PiServer GUI is not listening on port 80."
+    echo
+    echo "PiServer logs:"
+    journalctl -u pi-gateway.service -n 30 --no-pager
+    exit 1
+fi
+
+echo "PiServer GUI is listening on port 80."
+
+# ============================================================
 # Final status
+# ============================================================
+
 echo
 echo "================================="
 echo "       Setup Complete"
@@ -237,10 +421,12 @@ echo "piserver-lan:     $(systemctl is-active piserver-lan.service)"
 echo "pi-gateway:       $(systemctl is-active pi-gateway.service)"
 
 echo
-echo "PiServer setup completed."
+echo "PiServer GUI:"
+echo "  http://192.168.50.1"
 
 echo
-echo "NOTE:"
-echo "A reboot is recommended to fully apply the NetworkManager"
-echo "configuration for wlan0."
+echo "PiServer setup completed successfully."
 
+echo
+echo "A reboot is recommended to fully apply the"
+echo "NetworkManager configuration."
