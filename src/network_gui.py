@@ -1163,12 +1163,7 @@ body {
     <div class="nav">
         <a href="/" class="active">Dashboard</a>
         <a href="/network">Network</a>
-        <a href="/dhcp">DHCP</a>
         <a href="/dns">DNS</a>
-        <a href="/firewall">Firewall</a>
-        <a href="/vpn">VPN</a>
-        <a href="/monitoring">Monitoring</a>
-        <a href="/logs">Logs</a>
     </div>
 </div>
 
@@ -2539,96 +2534,7 @@ def dns_page():
 
         <!-- CUSTOM BLOCKLIST -->
 
-        <div class="card">
-
-            <h2>Custom Blocklist</h2>
-
-            <p style="color:#888;">
-
-                Add your own domains to block.
-                You can enter a domain or paste a URL.
-
-            </p>
-
-
-            <form method="post">
-
-                <div class="custom-domain-form">
-
-                    <input
-                        class="domain-input"
-                        type="text"
-                        name="domain"
-                        placeholder="example.com"
-                        required
-                    >
-
-                    <button
-                        class="button"
-                        type="submit"
-                        name="custom_action"
-                        value="add"
-                    >
-                        Block Domain
-                    </button>
-
-                </div>
-
-            </form>
-
-
-            <h3>
-                Custom Blocked Domains
-            </h3>
-
-
-            {% if custom_domains %}
-
-                {% for domain in custom_domains %}
-
-                    <div class="custom-domain">
-
-                        <span class="domain-name">
-                            {{ domain }}
-                        </span>
-
-                        <form
-                            method="post"
-                            class="remove-form"
-                        >
-
-                            <input
-                                type="hidden"
-                                name="domain"
-                                value="{{ domain }}"
-                            >
-
-                            <button
-                                class="button"
-                                type="submit"
-                                name="custom_action"
-                                value="remove"
-                            >
-                                Remove
-                            </button>
-
-                        </form>
-
-                    </div>
-
-                {% endfor %}
-
-            {% else %}
-
-                <p style="color:#777;">
-
-                    No custom domains are blocked.
-
-                </p>
-
-            {% endif %}
-
-        </div>
+        
 
 
         <!-- INFORMATION -->
