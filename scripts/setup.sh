@@ -1,3 +1,4 @@
+
 #!/bin/bash
 
 set -e
@@ -66,7 +67,7 @@ REQUIRED_FILES=(
     "configs/hostapd.conf.example"
     "configs/dnsmasq.conf.example"
     "configs/99-piserver-router.conf"
-    "src/network_gui.py"
+    "src/main.py"
 )
 
 for FILE in "${REQUIRED_FILES[@]}"; do
@@ -94,7 +95,6 @@ apt-get install -y \
     python3 \
     python3-pip \
     python3-venv \
-    python3-flask \
     hostapd \
     dnsmasq \
     nftables \
@@ -133,6 +133,33 @@ echo "Checking Flask..."
 python3 -c "import flask; print('Flask:', flask.__version__)"
 
 echo "Flask OK."
+
+# ============================================================
+# Verify PiServer Python modules
+# ============================================================
+
+echo
+echo "Checking PiServer Python modules..."
+
+cd "$INSTALL_DIR/src"
+
+python3 -c "
+import config
+import main
+import network
+import dns
+import dhcp
+import firewall
+import monitoring
+import nat
+import app_logging
+import vpn
+import adblock
+"
+
+echo "PiServer Python modules OK."
+
+cd "$INSTALL_DIR"
 
 # ============================================================
 # Configure NetworkManager
@@ -269,7 +296,7 @@ echo "Installing PiServer GUI service..."
 
 cat > /etc/systemd/system/pi-gateway.service <<EOF
 [Unit]
-Description=PiServer Network Gateway GUI
+Description=Raspberry Pi Network Gateway GUI
 After=network-online.target piserver-lan.service
 Wants=network-online.target
 
@@ -277,7 +304,7 @@ Wants=network-online.target
 Type=simple
 User=root
 WorkingDirectory=$INSTALL_DIR
-ExecStart=/usr/bin/python3 $INSTALL_DIR/src/network_gui.py
+ExecStart=/usr/bin/python3 $INSTALL_DIR/src/main.py
 Restart=always
 RestartSec=3
 
@@ -342,7 +369,7 @@ for SERVICE in "${SERVICES[@]}"; do
         echo "  ERROR: $SERVICE failed"
         echo
         echo "Recent logs:"
-        journalctl -u "$SERVICE" -n 20 --no-pager
+        journalctl -u "$SERVICE" -n 30 --no-pager
         exit 1
     fi
 
@@ -368,21 +395,24 @@ fi
 echo "wlan0 OK."
 
 # ============================================================
-# Verify GUI
+# Verify PiServer GUI
 # ============================================================
 
 echo
 echo "Checking PiServer GUI..."
 
-if ! ss -lntp | grep -q ":80 "; then
-    echo "ERROR: PiServer GUI is not listening on port 80."
+if ! curl -fsS http://127.0.0.1/ >/dev/null; then
+
+    echo "ERROR: PiServer GUI is not responding."
     echo
     echo "PiServer logs:"
     journalctl -u pi-gateway.service -n 30 --no-pager
+
     exit 1
+
 fi
 
-echo "PiServer GUI is listening on port 80."
+echo "PiServer GUI is responding."
 
 # ============================================================
 # Final status
