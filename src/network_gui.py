@@ -801,31 +801,18 @@ DASHBOARD_TEMPLATE = """
 <!DOCTYPE html>
 <html>
 <head>
-
 <meta charset="UTF-8">
-
-<meta
-    name="viewport"
-    content="width=device-width, initial-scale=1.0"
->
-
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>PiServer Dashboard</title>
 
 <style>
-
-* {
-    box-sizing: border-box;
-}
+* { box-sizing: border-box; }
 
 body {
     margin: 0;
-    background: #0f1115;
-    color: #f1f1f1;
-    font-family:
-        -apple-system,
-        BlinkMacSystemFont,
-        "Segoe UI",
-        sans-serif;
+    background: #0b0e12;
+    color: #f3f4f6;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
 
 .sidebar {
@@ -834,8 +821,8 @@ body {
     top: 0;
     bottom: 0;
     width: 220px;
-    background: #171a21;
-    border-right: 1px solid #282c35;
+    background: #12161c;
+    border-right: 1px solid #252b34;
     padding: 24px 16px;
 }
 
@@ -846,30 +833,31 @@ body {
 }
 
 .logo span {
-    font-size: 13px;
-    color: #888;
     display: block;
     margin-top: 4px;
+    color: #7f8793;
+    font-size: 13px;
 }
 
 .nav a {
     display: block;
-    padding: 12px 14px;
-    margin-bottom: 6px;
+    padding: 11px 13px;
+    margin-bottom: 5px;
     border-radius: 8px;
-    color: #bbb;
+    color: #aeb5bf;
     text-decoration: none;
 }
 
 .nav a:hover,
 .nav a.active {
-    background: #252a34;
-    color: white;
+    background: #222831;
+    color: #fff;
 }
 
 .main {
     margin-left: 220px;
-    padding: 28px;
+    padding: 30px;
+    max-width: 1500px;
 }
 
 .header {
@@ -884,56 +872,152 @@ body {
     font-size: 28px;
 }
 
+.header-sub {
+    color: #7f8793;
+    font-size: 13px;
+    margin-top: 5px;
+}
+
 .status {
+    display: flex;
+    align-items: center;
+    gap: 8px;
     padding: 8px 12px;
     border-radius: 20px;
+    background: #171c23;
+    border: 1px solid #252b34;
     font-size: 13px;
-    background: #252a34;
 }
 
 .grid {
     display: grid;
-    grid-template-columns:
-        repeat(
-            auto-fit,
-            minmax(220px, 1fr)
-        );
-    gap: 16px;
-    margin-bottom: 20px;
+    grid-template-columns: repeat(4, minmax(180px, 1fr));
+    gap: 14px;
+    margin-bottom: 14px;
 }
 
 .card {
-    background: #171a21;
-    border: 1px solid #282c35;
+    background: #12161c;
+    border: 1px solid #252b34;
     border-radius: 12px;
-    padding: 20px;
+    padding: 18px;
 }
 
 .card h3 {
-    margin-top: 0;
-    color: #aaa;
-    font-size: 14px;
+    margin: 0 0 8px;
+    color: #8f98a5;
+    font-size: 13px;
     font-weight: 500;
 }
 
 .metric {
-    font-size: 30px;
+    font-size: 27px;
     font-weight: 700;
-    margin-top: 8px;
+    letter-spacing: -0.4px;
 }
 
 .sub {
-    color: #888;
-    font-size: 13px;
+    color: #737c89;
+    font-size: 12px;
     margin-top: 5px;
+}
+
+.summary {
+    display: grid;
+    grid-template-columns: 1.2fr 1fr 1fr 1fr;
+    gap: 14px;
+    margin-bottom: 14px;
+}
+
+.summary-card {
+    background: #151a21;
+    border: 1px solid #252b34;
+    border-radius: 12px;
+    padding: 18px;
+}
+
+.summary-label {
+    color: #7f8793;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: .08em;
+}
+
+.summary-value {
+    font-size: 30px;
+    font-weight: 700;
+    margin-top: 5px;
+}
+
+.network-card {
+    min-height: 126px;
+}
+
+.network-line {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 15px;
+    margin-top: 10px;
+}
+
+.network-name {
+    font-size: 13px;
+    color: #8f98a5;
+}
+
+.network-ip {
+    font-family: monospace;
+    font-size: 14px;
+}
+
+.state {
+    font-size: 12px;
+    color: #65d985;
+}
+
+.state.offline {
+    color: #d96868;
+}
+
+.progress {
+    height: 5px;
+    background: #252b34;
+    border-radius: 99px;
+    overflow: hidden;
+    margin-top: 12px;
+}
+
+.progress > div {
+    height: 100%;
+    width: 0;
+    background: #7aa2f7;
+    transition: width .25s ease;
+}
+
+.section-title {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+}
+
+.section-title h2 {
+    margin: 0;
+    font-size: 17px;
+}
+
+.section-title span {
+    color: #727b88;
+    font-size: 12px;
 }
 
 .service {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 12px 0;
-    border-bottom: 1px solid #282c35;
+    padding: 11px 0;
+    border-bottom: 1px solid #252b34;
 }
 
 .service:last-child {
@@ -942,91 +1026,103 @@ body {
 
 .dot {
     display: inline-block;
-    width: 9px;
-    height: 9px;
+    width: 8px;
+    height: 8px;
     border-radius: 50%;
-    margin-right: 7px;
-    background: #666;
+    margin-right: 8px;
+    background: #626b77;
 }
 
-.dot.active {
-    background: #55d17a;
-}
+.dot.active { background: #55d17a; }
+.dot.inactive { background: #d65c5c; }
 
-.dot.inactive {
-    background: #d65c5c;
-}
-
-.device {
-    display: grid;
-    grid-template-columns:
-        1.3fr
-        1fr
-        1.4fr
-        1fr
-        1fr;
-    gap: 10px;
+.service-name {
+    display: flex;
     align-items: center;
-    padding: 14px 8px;
-    border-bottom: 1px solid #282c35;
-}
-
-.device:last-child {
-    border-bottom: none;
-}
-
-.device a {
-    color: white;
-    text-decoration: none;
-}
-
-.device a:hover {
-    text-decoration: underline;
-}
-
-.table-header {
-    color: #777;
-    font-size: 12px;
-    text-transform: uppercase;
+    color: #d8dce2;
+    font-size: 13px;
 }
 
 .badge {
     display: inline-block;
     padding: 4px 8px;
     border-radius: 6px;
-    background: #252a34;
+    background: #202630;
+    color: #aeb5bf;
+    font-size: 11px;
+}
+
+.devices-card {
+    padding: 0;
+    overflow: hidden;
+}
+
+.devices-head {
+    padding: 18px;
+    border-bottom: 1px solid #252b34;
+}
+
+.device {
+    display: grid;
+    grid-template-columns: 1.5fr 1fr 1.4fr .8fr .8fr 90px;
+    gap: 12px;
+    align-items: center;
+    padding: 13px 18px;
+    border-bottom: 1px solid #20252d;
+    font-size: 13px;
+}
+
+.device:last-child { border-bottom: none; }
+
+.device:hover {
+    background: #171c23;
+}
+
+.device a {
+    color: #f3f4f6;
+    text-decoration: none;
+    font-weight: 600;
+}
+
+.device a:hover { text-decoration: underline; }
+
+.table-header {
+    color: #6f7885;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: .06em;
+}
+
+.device-status {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    color: #65d985;
     font-size: 12px;
 }
 
-.online {
-    color: #65d985;
-}
+.device-status.offline { color: #d96868; }
 
-.offline {
-    color: #d96868;
-}
-
-.button {
-    background: #252a34;
-    border: 1px solid #3a404c;
-    color: white;
-    padding: 8px 12px;
-    border-radius: 7px;
-    cursor: pointer;
-}
-
-.button:hover {
-    background: #303642;
+.mono {
+    font-family: monospace;
+    color: #b8bec7;
 }
 
 .footer {
-    color: #666;
-    font-size: 12px;
-    margin-top: 24px;
+    color: #5f6875;
+    font-size: 11px;
+    margin-top: 18px;
+    text-align: right;
+}
+
+@media (max-width: 1050px) {
+    .grid { grid-template-columns: repeat(2, 1fr); }
+    .summary { grid-template-columns: repeat(2, 1fr); }
+    .device { grid-template-columns: 1.4fr 1fr 1.2fr .8fr .8fr; }
+    .device > :last-child { display: none; }
 }
 
 @media (max-width: 800px) {
-
     .sidebar {
         position: static;
         width: 100%;
@@ -1038,820 +1134,416 @@ body {
         padding: 16px;
     }
 
-    .device {
-        grid-template-columns:
-            1fr 1fr;
+    .grid,
+    .summary {
+        grid-template-columns: 1fr;
     }
 
+    .device {
+        grid-template-columns: 1fr 1fr;
+    }
+
+    .device > :nth-child(3),
+    .device > :nth-child(4),
+    .device > :nth-child(5) {
+        display: none;
+    }
 }
-
 </style>
-
 </head>
 
 <body>
 
 <div class="sidebar">
-
     <div class="logo">
         PiServer
         <span>Network Gateway</span>
     </div>
 
     <div class="nav">
-
-        <a
-            href="/"
-            class="active"
-        >
-            Dashboard
-        </a>
-
-        <a href="/network">
-            Network
-        </a>
-
-        <a href="/dhcp">
-            DHCP
-        </a>
-
-        <a href="/dns">
-            DNS
-        </a>
-
-        <a href="/firewall">
-            Firewall
-        </a>
-
-        <a href="/vpn">
-            VPN
-        </a>
-
-        <a href="/monitoring">
-            Monitoring
-        </a>
-
-        <a href="/logs">
-            Logs
-        </a>
-
+        <a href="/" class="active">Dashboard</a>
+        <a href="/network">Network</a>
+        <a href="/dhcp">DHCP</a>
+        <a href="/dns">DNS</a>
+        <a href="/firewall">Firewall</a>
+        <a href="/vpn">VPN</a>
+        <a href="/monitoring">Monitoring</a>
+        <a href="/logs">Logs</a>
     </div>
-
 </div>
 
 <div class="main">
 
     <div class="header">
-
-        <h1>Dashboard</h1>
+        <div>
+            <h1>Dashboard</h1>
+            <div class="header-sub">Live gateway and LAN overview</div>
+        </div>
 
         <div class="status">
+            <span class="dot active" id="gateway-dot"></span>
+            <span id="gateway-status">PiServer Online</span>
+        </div>
+    </div>
 
-            <span
-                class="dot active"
-                id="gateway-dot"
-            ></span>
+    <!-- QUICK SUMMARY -->
+    <div class="summary">
 
-            PiServer Online
+        <div class="summary-card">
+            <div class="summary-label">Connected Devices</div>
+            <div class="summary-value" id="device-count">0</div>
+            <div class="sub">LAN clients currently visible</div>
+        </div>
 
+        <div class="summary-card">
+            <div class="summary-label">TCP Connections</div>
+            <div class="summary-value" id="connections">--</div>
+            <div class="sub">Active network connections</div>
+        </div>
+
+        <div class="summary-card">
+            <div class="summary-label">Internet</div>
+            <div class="summary-value" id="internet">--</div>
+            <div class="sub">WAN connectivity</div>
+        </div>
+
+        <div class="summary-card">
+            <div class="summary-label">Uptime</div>
+            <div class="summary-value" id="uptime">--</div>
+            <div class="sub">System uptime</div>
         </div>
 
     </div>
 
-
-    <!-- SYSTEM -->
-
+    <!-- SYSTEM METRICS -->
     <div class="grid">
 
         <div class="card">
-
             <h3>CPU Usage</h3>
-
-            <div
-                class="metric"
-                id="cpu"
-            >
-                --
-            </div>
-
-            <div class="sub">
-                Processor utilization
-            </div>
-
+            <div class="metric" id="cpu">--</div>
+            <div class="progress"><div id="cpu-bar"></div></div>
+            <div class="sub">Processor utilization</div>
         </div>
 
-
         <div class="card">
-
             <h3>Memory</h3>
-
-            <div
-                class="metric"
-                id="memory"
-            >
-                --
-            </div>
-
-            <div class="sub">
-                RAM utilization
-            </div>
-
+            <div class="metric" id="memory">--</div>
+            <div class="progress"><div id="memory-bar"></div></div>
+            <div class="sub">RAM utilization</div>
         </div>
 
-
         <div class="card">
-
             <h3>Temperature</h3>
-
-            <div
-                class="metric"
-                id="temperature"
-            >
-                --
-            </div>
-
-            <div class="sub">
-                CPU temperature
-            </div>
-
+            <div class="metric" id="temperature">--</div>
+            <div class="sub">CPU temperature</div>
         </div>
 
-
         <div class="card">
-
             <h3>Storage</h3>
-
-            <div
-                class="metric"
-                id="storage"
-            >
-                --
-            </div>
-
-            <div class="sub">
-                Root filesystem
-            </div>
-
-        </div>
-
-
-        <div class="card">
-
-            <h3>Uptime</h3>
-
-            <div
-                class="metric"
-                id="uptime"
-            >
-                --
-            </div>
-
-            <div class="sub">
-                System uptime
-            </div>
-
+            <div class="metric" id="storage">--</div>
+            <div class="progress"><div id="storage-bar"></div></div>
+            <div class="sub">Root filesystem usage</div>
         </div>
 
     </div>
 
-
-    <!-- NETWORK -->
-
+    <!-- WAN / LAN -->
     <div class="grid">
 
-        <div class="card">
-
+        <div class="card network-card">
             <h3>WAN</h3>
-
-            <div
-                class="metric"
-                id="wan-ip"
-            >
-                --
+            <div class="network-line">
+                <span class="network-name" id="wan-interface">--</span>
+                <span class="state" id="wan-state">--</span>
             </div>
-
-            <div
-                class="sub"
-                id="wan-state"
-            >
-                --
+            <div class="network-line">
+                <span class="network-name">IP Address</span>
+                <span class="network-ip" id="wan-ip">--</span>
             </div>
-
         </div>
 
-
-        <div class="card">
-
+        <div class="card network-card">
             <h3>LAN</h3>
-
-            <div
-                class="metric"
-                id="lan-ip"
-            >
-                --
+            <div class="network-line">
+                <span class="network-name" id="lan-interface">--</span>
+                <span class="state" id="lan-state">--</span>
             </div>
-
-            <div
-                class="sub"
-                id="lan-state"
-            >
-                --
+            <div class="network-line">
+                <span class="network-name">IP Address</span>
+                <span class="network-ip" id="lan-ip">--</span>
             </div>
-
         </div>
-
 
         <div class="card">
-
-            <h3>Internet</h3>
-
-            <div
-                class="metric"
-                id="internet"
-            >
-                --
+            <h3>Network Traffic</h3>
+            <div class="network-line">
+                <span class="network-name">RX</span>
+                <span class="network-ip" id="network-rx">--</span>
             </div>
-
-            <div class="sub">
-                Connectivity test
+            <div class="network-line">
+                <span class="network-name">TX</span>
+                <span class="network-ip" id="network-tx">--</span>
             </div>
-
         </div>
-
 
         <div class="card">
-
-            <h3>TCP Connections</h3>
-
-            <div
-                class="metric"
-                id="connections"
-            >
-                --
+            <h3>Services</h3>
+            <div class="service">
+                <span class="service-name"><span class="dot" id="dhcp-dot"></span>DHCP</span>
+                <span class="badge" id="dhcp-status">--</span>
             </div>
-
-            <div class="sub">
-                Active connections
+            <div class="service">
+                <span class="service-name"><span class="dot" id="dns-dot"></span>DNS</span>
+                <span class="badge" id="dns-status">--</span>
             </div>
-
+            <div class="service">
+                <span class="service-name"><span class="dot" id="nat-dot"></span>NAT</span>
+                <span class="badge" id="nat-status">--</span>
+            </div>
         </div>
 
     </div>
-
-
-    <!-- SERVICES -->
-
-    <div class="card">
-
-        <h3>Gateway Services</h3>
-
-        <div class="service">
-
-            <span>
-
-                <span
-                    class="dot"
-                    id="dhcp-dot"
-                ></span>
-
-                DHCP
-
-            </span>
-
-            <span
-                class="badge"
-                id="dhcp-status"
-            >
-                --
-            </span>
-
-        </div>
-
-
-        <div class="service">
-
-            <span>
-
-                <span
-                    class="dot"
-                    id="dns-dot"
-                ></span>
-
-                DNS
-
-            </span>
-
-            <span
-                class="badge"
-                id="dns-status"
-            >
-                --
-            </span>
-
-        </div>
-
-
-        <div class="service">
-
-            <span>
-
-                <span
-                    class="dot"
-                    id="nat-dot"
-                ></span>
-
-                NAT
-
-            </span>
-
-            <span
-                class="badge"
-                id="nat-status"
-            >
-                --
-            </span>
-
-        </div>
-
-
-        <div class="service">
-
-            <span>
-
-                <span
-                    class="dot"
-                    id="firewall-dot"
-                ></span>
-
-                Firewall
-
-            </span>
-
-            <span
-                class="badge"
-                id="firewall-status"
-            >
-                --
-            </span>
-
-        </div>
-
-
-        <div class="service">
-
-            <span>
-
-                <span
-                    class="dot"
-                    id="vpn-dot"
-                ></span>
-
-                VPN
-
-            </span>
-
-            <span
-                class="badge"
-                id="vpn-status"
-            >
-                --
-            </span>
-
-        </div>
-
-    </div>
-
-
-    <br>
-
-
-    <!-- AD BLOCKING -->
-
-    <div class="card">
-
-        <h3>Ad Blocking</h3>
-
-        <div class="service">
-
-            <span>
-
-                <span
-                    class="dot"
-                    id="adblock-dot"
-                ></span>
-
-                HageZi Multi PRO
-
-            </span>
-
-            <span
-                class="badge"
-                id="adblock-status"
-            >
-                --
-            </span>
-
-        </div>
-
-        <div class="sub">
-
-            Blocked domains:
-
-            <strong id="adblock-count">
-                --
-            </strong>
-
-        </div>
-
-    </div>
-
-
-    <br>
-
 
     <!-- DEVICES -->
+    <div class="card devices-card">
 
-    <div class="card">
-
-        <h3>
-            Connected Devices
-            (<span id="device-count">0</span>)
-        </h3>
+        <div class="devices-head">
+            <div class="section-title">
+                <h2>Connected Devices</h2>
+                <span id="device-updated">Updating...</span>
+            </div>
+            <div class="sub">
+                DHCP leases and ARP neighbors detected on the LAN
+            </div>
+        </div>
 
         <div class="device table-header">
-
-            <div>
-                Hostname
-            </div>
-
-            <div>
-                IP
-            </div>
-
-            <div>
-                MAC
-            </div>
-
-            <div>
-                RX
-            </div>
-
-            <div>
-                TX
-            </div>
-
+            <div>Device</div>
+            <div>IP Address</div>
+            <div>MAC Address</div>
+            <div>RX</div>
+            <div>TX</div>
+            <div>Status</div>
         </div>
 
         <div id="devices">
-
-            <div class="sub">
-                Loading devices...
-            </div>
-
+            <div class="sub" style="padding:18px;">Loading devices...</div>
         </div>
 
     </div>
 
+    <!-- AD BLOCKING -->
+    <div class="card" style="margin-top:14px;">
+        <div class="section-title">
+            <h2>Ad Blocking</h2>
+            <span><span class="dot" id="adblock-dot"></span><span id="adblock-status">--</span></span>
+        </div>
+        <div class="sub">
+            HaGeZi Multi PRO ·
+            <strong id="adblock-count">0</strong> blocked domains
+        </div>
+    </div>
 
     <div class="footer">
-
-        PiServer automatically refreshes dashboard
-        metrics every 3 seconds.
-
+        Live data refreshes every 3 seconds
     </div>
 
 </div>
 
-
 <script>
+function setService(service, enabled) {
+    const dot = document.getElementById(service + "-dot");
+    const status = document.getElementById(service + "-status");
 
-function setService(
-    service,
-    enabled
-) {
+    if (!dot || !status) return;
 
-    const dot =
-        document.getElementById(
-            service + "-dot"
-        );
+    dot.className = enabled ? "dot active" : "dot inactive";
+    status.textContent = enabled ? "Active" : "Inactive";
+}
 
-    const status =
-        document.getElementById(
-            service + "-status"
-        );
+function setProgress(id, value) {
+    const bar = document.getElementById(id);
+    if (!bar) return;
 
-    if (!dot || !status) {
+    const numeric = Number(value);
+    if (!Number.isFinite(numeric)) {
+        bar.style.width = "0%";
         return;
     }
 
-    if (enabled) {
-
-        dot.className =
-            "dot active";
-
-        status.textContent =
-            "Active";
-
-    } else {
-
-        dot.className =
-            "dot inactive";
-
-        status.textContent =
-            "Inactive";
-    }
+    bar.style.width = Math.max(0, Math.min(100, numeric)) + "%";
 }
 
+function renderDevices(devices) {
+    const container = document.getElementById("devices");
+    const count = document.getElementById("device-count");
 
-function renderDevices(
-    devices
-) {
-
-    const container =
-        document.getElementById(
-            "devices"
-        );
-
-    const count =
-        document.getElementById(
-            "device-count"
-        );
-
-    count.textContent =
-        devices.length;
+    count.textContent = devices.length;
 
     if (!devices.length) {
-
         container.innerHTML =
-            '<div class="sub">' +
-            'No connected devices' +
-            '</div>';
-
+            '<div class="sub" style="padding:18px;">No connected devices detected</div>';
         return;
     }
 
-    container.innerHTML =
-        devices.map(
-            function(device) {
+    container.innerHTML = devices.map(function(device) {
+        const hostname = device.hostname || "Unknown";
+        const ip = device.ip || "--";
+        const mac = device.mac || "--";
+        const rx = device.rx_human || "--";
+        const tx = device.tx_human || "--";
+        const online = device.connected !== false;
 
-                const hostname =
-                    device.hostname ||
-                    "Unknown";
+        return `
+            <div class="device">
+                <div>
+                    <a href="/device/${ip}">${hostname}</a>
+                    <div class="sub">${device.interface || "LAN"}</div>
+                </div>
 
-                const ip =
-                    device.ip ||
-                    "--";
+                <div class="mono">${ip}</div>
 
-                const mac =
-                    device.mac ||
-                    "--";
+                <div class="mono">${mac}</div>
 
-                const rx =
-                    device.rx_human ||
-                    "--";
+                <div>${rx}</div>
 
-                const tx =
-                    device.tx_human ||
-                    "--";
+                <div>${tx}</div>
 
-                return `
-                    <div class="device">
-
-                        <div>
-                            <a
-                                href="/device/${ip}"
-                            >
-                                ${hostname}
-                            </a>
-                        </div>
-
-                        <div>
-                            ${ip}
-                        </div>
-
-                        <div>
-                            ${mac}
-                        </div>
-
-                        <div>
-                            ${rx}
-                        </div>
-
-                        <div>
-                            ${tx}
-                        </div>
-
-                    </div>
-                `;
-            }
-        ).join("");
+                <div class="device-status ${online ? "" : "offline"}">
+                    <span class="dot ${online ? "active" : "inactive"}"></span>
+                    ${online ? "Online" : "Offline"}
+                </div>
+            </div>
+        `;
+    }).join("");
 }
 
-
 async function refreshDashboard() {
-
     try {
-
-        const response =
-            await fetch(
-                "/api/dashboard"
-            );
+        const response = await fetch("/api/dashboard", {
+            cache: "no-store"
+        });
 
         if (!response.ok) {
-
-            throw new Error(
-                "Dashboard request failed"
-            );
-
+            throw new Error("Dashboard request failed");
         }
 
-        const data =
-            await response.json();
+        const data = await response.json();
 
+        const system = data.system || {};
 
-        const system =
-            data.system || {};
+        const cpu = system.cpu_usage;
+        const memory = system.memory_usage;
+        const storage = system.storage_usage;
 
-        document.getElementById(
-            "cpu"
-        ).textContent =
-            system.cpu_usage !== null &&
-            system.cpu_usage !== undefined
-                ? system.cpu_usage + "%"
-                : "N/A";
+        document.getElementById("cpu").textContent =
+            cpu !== null && cpu !== undefined ? cpu + "%" : "N/A";
 
-        document.getElementById(
-            "memory"
-        ).textContent =
-            system.memory_usage !== null &&
-            system.memory_usage !== undefined
-                ? system.memory_usage + "%"
-                : "N/A";
+        document.getElementById("memory").textContent =
+            memory !== null && memory !== undefined ? memory + "%" : "N/A";
 
-        document.getElementById(
-            "temperature"
-        ).textContent =
+        document.getElementById("temperature").textContent =
             system.temperature !== null &&
             system.temperature !== undefined
                 ? system.temperature + "°C"
                 : "N/A";
 
-        document.getElementById(
-            "storage"
-        ).textContent =
-            system.storage_usage !== null &&
-            system.storage_usage !== undefined
-                ? system.storage_usage + "%"
+        document.getElementById("storage").textContent =
+            storage !== null && storage !== undefined
+                ? storage + "%"
                 : "N/A";
 
-        document.getElementById(
-            "uptime"
-        ).textContent =
-            system.uptime_text ||
-            "Unknown";
+        document.getElementById("uptime").textContent =
+            system.uptime_text || "Unknown";
 
+        setProgress("cpu-bar", cpu);
+        setProgress("memory-bar", memory);
+        setProgress("storage-bar", storage);
 
-        const network =
-            data.network || {};
+        const network = data.network || {};
+        const wan = network.wan || {};
+        const lan = network.lan || {};
 
-        const wan =
-            network.wan || {};
-
-        const lan =
-            network.lan || {};
-
-        document.getElementById(
-            "wan-ip"
-        ).textContent =
+        document.getElementById("wan-ip").textContent =
             wan.ip || "N/A";
-
-        document.getElementById(
-            "wan-state"
-        ).textContent =
+        document.getElementById("wan-interface").textContent =
+            wan.interface || "WAN";
+        document.getElementById("wan-state").textContent =
             wan.state || "unknown";
 
-        document.getElementById(
-            "lan-ip"
-        ).textContent =
+        document.getElementById("lan-ip").textContent =
             lan.ip || "N/A";
-
-        document.getElementById(
-            "lan-state"
-        ).textContent =
+        document.getElementById("lan-interface").textContent =
+            lan.interface || "LAN";
+        document.getElementById("lan-state").textContent =
             lan.state || "unknown";
 
-        document.getElementById(
-            "internet"
-        ).textContent =
-            network.internet
-                ? "Online"
-                : "Offline";
+        const internet = Boolean(network.internet);
+        const internetElement = document.getElementById("internet");
+        internetElement.textContent = internet ? "Online" : "Offline";
+        internetElement.style.color = internet ? "#65d985" : "#d96868";
 
-        document.getElementById(
-            "connections"
-        ).textContent =
+        document.getElementById("connections").textContent =
             network.connections !== null &&
             network.connections !== undefined
                 ? network.connections
                 : "N/A";
 
+        /*
+         * These fields are displayed only when the existing monitoring
+         * backend provides them. No new backend assumptions are made.
+         */
+        document.getElementById("network-rx").textContent =
+            network.rx_human || network.rx || "--";
 
-        const services =
-            data.services || {};
+        document.getElementById("network-tx").textContent =
+            network.tx_human || network.tx || "--";
 
-        setService(
-            "dhcp",
-            services.dhcp?.enabled
-        );
+        const services = data.services || {};
 
-        setService(
-            "dns",
-            services.dns?.enabled
-        );
+        setService("dhcp", services.dhcp?.enabled);
+        setService("dns", services.dns?.enabled);
+        setService("nat", services.nat?.enabled);
 
-        setService(
-            "nat",
-            services.nat?.enabled
-        );
-
-        setService(
-            "firewall",
-            services.firewall?.enabled
-        );
-
-        setService(
-            "vpn",
-            services.vpn?.enabled
-        );
-
-
-        const adblock =
-            data.adblock || {};
-
-        const adblockDot =
-            document.getElementById(
-                "adblock-dot"
-            );
-
-        const adblockStatus =
-            document.getElementById(
-                "adblock-status"
-            );
-
-        const adblockCount =
-            document.getElementById(
-                "adblock-count"
-            );
+        const adblock = data.adblock || {};
+        const adblockDot = document.getElementById("adblock-dot");
+        const adblockStatus = document.getElementById("adblock-status");
 
         if (adblock.enabled) {
-
-            adblockDot.className =
-                "dot active";
-
-            adblockStatus.textContent =
-                "Active";
-
+            adblockDot.className = "dot active";
+            adblockStatus.textContent = "Active";
         } else {
-
-            adblockDot.className =
-                "dot inactive";
-
-            adblockStatus.textContent =
-                "Inactive";
+            adblockDot.className = "dot inactive";
+            adblockStatus.textContent = "Inactive";
         }
 
-        adblockCount.textContent =
+        document.getElementById("adblock-count").textContent =
             adblock.blocked_domains !== undefined
                 ? adblock.blocked_domains
                 : "0";
 
+        renderDevices(data.devices || []);
 
-        renderDevices(
-            data.devices || []
-        );
+        document.getElementById("device-updated").textContent =
+            "Updated " + new Date().toLocaleTimeString();
+
+        document.getElementById("gateway-dot").className = "dot active";
+        document.getElementById("gateway-status").textContent =
+            "PiServer Online";
 
     } catch (error) {
+        console.error("Dashboard refresh failed:", error);
 
-        console.error(
-            "Dashboard refresh failed:",
-            error
-        );
-
-        document.getElementById(
-            "gateway-dot"
-        ).className =
+        document.getElementById("gateway-dot").className =
             "dot inactive";
+
+        document.getElementById("gateway-status").textContent =
+            "Dashboard Error";
     }
 }
 
-
 refreshDashboard();
-
-setInterval(
-    refreshDashboard,
-    3000
-);
-
+setInterval(refreshDashboard, 3000);
 </script>
 
 </body>
