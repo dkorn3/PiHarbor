@@ -7,7 +7,7 @@ Wants=network-online.target
 Type=simple
 User=root
 WorkingDirectory=/home/dominikkornak/PiServer
-ExecStart=/usr/bin/python3 /home/dominikkornak/PiServer/src/network_gui.py
+ExecStart=/usr/bin/python3 /home/dominikkornak/PiServer/src/main.py
 Restart=always
 RestartSec=3
 
