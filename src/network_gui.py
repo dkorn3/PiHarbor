@@ -1461,22 +1461,30 @@ async function refreshDashboard() {
 
         document.getElementById("wan-ip").textContent =
             wan.ip || "N/A";
+
         document.getElementById("wan-interface").textContent =
             wan.interface || "WAN";
+
         document.getElementById("wan-state").textContent =
             wan.state || "unknown";
 
         document.getElementById("lan-ip").textContent =
             lan.ip || "N/A";
+
         document.getElementById("lan-interface").textContent =
             lan.interface || "LAN";
+
         document.getElementById("lan-state").textContent =
             lan.state || "unknown";
 
         const internet = Boolean(network.internet);
         const internetElement = document.getElementById("internet");
-        internetElement.textContent = internet ? "Online" : "Offline";
-        internetElement.style.color = internet ? "#65d985" : "#d96868";
+
+        internetElement.textContent =
+            internet ? "Online" : "Offline";
+
+        internetElement.style.color =
+            internet ? "#65d985" : "#d96868";
 
         document.getElementById("connections").textContent =
             network.connections !== null &&
@@ -1484,10 +1492,6 @@ async function refreshDashboard() {
                 ? network.connections
                 : "N/A";
 
-        /*
-         * These fields are displayed only when the existing monitoring
-         * backend provides them. No new backend assumptions are made.
-         */
         document.getElementById("network-rx").textContent =
             network.rx_human || network.rx || "--";
 
@@ -1501,8 +1505,11 @@ async function refreshDashboard() {
         setService("nat", services.nat?.enabled);
 
         const adblock = data.adblock || {};
-        const adblockDot = document.getElementById("adblock-dot");
-        const adblockStatus = document.getElementById("adblock-status");
+        const adblockDot =
+            document.getElementById("adblock-dot");
+
+        const adblockStatus =
+            document.getElementById("adblock-status");
 
         if (adblock.enabled) {
             adblockDot.className = "dot active";
@@ -1522,12 +1529,17 @@ async function refreshDashboard() {
         document.getElementById("device-updated").textContent =
             "Updated " + new Date().toLocaleTimeString();
 
-        document.getElementById("gateway-dot").className = "dot active";
+        document.getElementById("gateway-dot").className =
+            "dot active";
+
         document.getElementById("gateway-status").textContent =
             "PiServer Online";
 
     } catch (error) {
-        console.error("Dashboard refresh failed:", error);
+        console.error(
+            "Dashboard refresh failed:",
+            error
+        );
 
         document.getElementById("gateway-dot").className =
             "dot inactive";
@@ -2534,44 +2546,87 @@ def dns_page():
 
         <!-- CUSTOM BLOCKLIST -->
 
-        
-
-
-        <!-- INFORMATION -->
-
         <div class="card">
 
-            <h2>How It Works</h2>
+            <h2>Custom Blocklist</h2>
 
-            <p>
-
-                PiServer uses dnsmasq to provide DNS
-                services to devices on the LAN.
-
+            <p style="color:#888;">
+                Add your own domains to block.
+                You can enter a domain or paste a URL.
             </p>
 
-            <p>
+            <form method="post">
 
-                Ad-blocking domains are provided by
-                the HaGeZi Multi PRO blocklist.
+                <div class="custom-domain-form">
 
-            </p>
+                    <input
+                        class="domain-input"
+                        type="text"
+                        name="domain"
+                        placeholder="example.com"
+                        required
+                    >
 
-            <p>
+                    <button
+                        class="button"
+                        type="submit"
+                        name="custom_action"
+                        value="add"
+                    >
+                        Block Domain
+                    </button>
 
-                Custom domains are stored separately
-                from the HaGeZi blocklist.
+                </div>
 
-            </p>
+            </form>
 
-            <p>
+            <h3>
+                Custom Blocked Domains
+            </h3>
 
-                When a custom domain is added or
-                removed, PiServer validates the
-                dnsmasq configuration and reloads
-                the DNS service automatically.
+            {% if custom_domains %}
 
-            </p>
+                {% for domain in custom_domains %}
+
+                    <div class="custom-domain">
+
+                        <span class="domain-name">
+                            {{ domain }}
+                        </span>
+
+                        <form
+                            method="post"
+                            class="remove-form"
+                        >
+
+                            <input
+                                type="hidden"
+                                name="domain"
+                                value="{{ domain }}"
+                            >
+
+                            <button
+                                class="button"
+                                type="submit"
+                                name="custom_action"
+                                value="remove"
+                            >
+                                Remove
+                            </button>
+
+                        </form>
+
+                    </div>
+
+                {% endfor %}
+
+            {% else %}
+
+                <p style="color:#777;">
+                    No custom domains are blocked.
+                </p>
+
+            {% endif %}
 
         </div>
 
