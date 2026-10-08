@@ -9,7 +9,6 @@ from flask import (
 from datetime import datetime
 import ipaddress
 import os
-import re
 import subprocess
 import threading
 import time
@@ -17,31 +16,38 @@ import time
 import config as gateway_config
 import monitoring
 import nat as nat_backend
+import traffic
+
 
 try:
     import dhcp as dhcp_backend
 except ImportError:
     dhcp_backend = None
 
+
 try:
     import dns as dns_backend
 except ImportError:
     dns_backend = None
+
 
 try:
     import adblock as adblock_backend
 except ImportError:
     adblock_backend = None
 
+
 try:
     import firewall as firewall_backend
 except ImportError:
     firewall_backend = None
 
+
 try:
     import vpn as vpn_backend
 except ImportError:
     vpn_backend = None
+
 
 try:
     import gateway_logger as gateway_logging
@@ -59,6 +65,17 @@ app = Flask(__name__)
 DEVICE_TRACKING = {}
 
 DEVICE_TRACKING_LOCK = threading.Lock()
+
+
+# ============================================================
+# Traffic Activity Tracking
+# ============================================================
+
+TRAFFIC_ACTIVITY_TRACKING = {}
+
+TRAFFIC_ACTIVITY_LOCK = threading.Lock()
+
+TRAFFIC_ACTIVITY_THRESHOLD = 1024
 
 
 # ============================================================
@@ -175,6 +192,7 @@ def format_bytes(value):
         index += 1
 
     if index == 0:
+
         return f"{int(value)} {units[index]}"
 
     return f"{value:.1f} {units[index]}"
@@ -331,7 +349,7 @@ def get_device_identity(
     operating_system = "Unknown"
 
     # --------------------------------------------------------
-    # Common hostname-based identification
+    # Mobile devices
     # --------------------------------------------------------
 
     if any(
@@ -349,16 +367,21 @@ def get_device_identity(
         value in hostname_text
         for value in (
             "android",
-                       "galaxy",
+            "galaxy",
             "pixel",
             "oneplus",
             "xiaomi",
             "redmi",
+            "moto",
         )
     ):
 
         device_type = "Mobile"
         operating_system = "Android"
+
+    # --------------------------------------------------------
+    # Apple computers
+    # --------------------------------------------------------
 
     elif any(
         value in hostname_text
@@ -373,17 +396,26 @@ def get_device_identity(
         device_type = "Computer"
         operating_system = "macOS"
 
+    # --------------------------------------------------------
+    # Windows
+    # --------------------------------------------------------
+
     elif any(
         value in hostname_text
         for value in (
             "windows",
             "desktop",
+            "laptop",
             "pc",
         )
     ):
 
         device_type = "Computer"
         operating_system = "Windows"
+
+    # --------------------------------------------------------
+    # Linux
+    # --------------------------------------------------------
 
     elif any(
         value in hostname_text
@@ -400,6 +432,10 @@ def get_device_identity(
         device_type = "Computer"
         operating_system = "Linux"
 
+    # --------------------------------------------------------
+    # Printers
+    # --------------------------------------------------------
+
     elif any(
         value in hostname_text
         for value in (
@@ -412,6 +448,10 @@ def get_device_identity(
     ):
 
         device_type = "Printer"
+
+    # --------------------------------------------------------
+    # TVs / Media
+    # --------------------------------------------------------
 
     elif any(
         value in hostname_text
@@ -427,6 +467,10 @@ def get_device_identity(
 
         device_type = "TV / Media"
 
+    # --------------------------------------------------------
+    # Smart Home
+    # --------------------------------------------------------
+
     elif any(
         value in hostname_text
         for value in (
@@ -438,6 +482,10 @@ def get_device_identity(
     ):
 
         device_type = "Smart Home"
+
+    # --------------------------------------------------------
+    # Cameras
+    # --------------------------------------------------------
 
     elif any(
         value in hostname_text
@@ -451,7 +499,7 @@ def get_device_identity(
         device_type = "Camera"
 
     # --------------------------------------------------------
-    # Generic fallbacks
+    # Generic fallback
     # --------------------------------------------------------
 
     if device_type == "Unknown":
@@ -541,226 +589,153 @@ def update_device_tracking(devices):
 # Per-Device Traffic
 # ============================================================
 
-def get_device_traffic():
+def get_device_traffic(device_ips):
     """
-    Attempt to collect per-device traffic from conntrack.
+    Get per-device traffic from the nftables accounting
+    backend.
 
-    Download:
-        WAN -> LAN client
-
-    Upload:
-        LAN client -> WAN
-
-    If conntrack is unavailable or does not expose byte
-    accounting, values are returned as None.
+    The traffic module is responsible for creating and
+    reading the nftables counters.
     """
 
-    traffic = {}
+    if not device_ips:
+        return {}
 
-    if not command_exists("conntrack"):
+    try:
 
-        return traffic
-
-    result = run_command(
-        [
-            "conntrack",
-            "-L",
-            "-o",
-            "extended",
-        ],
-        timeout=8,
-    )
-
-    if result is None:
-        return traffic
-
-    if result.returncode != 0:
-        return traffic
-
-    lan_interface = (
-        get_network_config().get(
-            "lan_interface",
-            "wlan0",
-        )
-    )
-
-    # --------------------------------------------------------
-    # Get LAN subnet
-    # --------------------------------------------------------
-
-    lan_ip = get_local_ip(
-        lan_interface
-    )
-
-    lan_network = None
-
-    if lan_ip:
-
-        try:
-
-            # Default to a /24 when the backend does not
-            # provide the prefix.
-            lan_network = ipaddress.ip_network(
-                f"{lan_ip}/24",
-                strict=False,
-            )
-
-        except ValueError:
-
-            lan_network = None
-
-    # --------------------------------------------------------
-    # Parse conntrack entries
-    # --------------------------------------------------------
-
-    for line in result.stdout.splitlines():
-
-        if not line.strip():
-            continue
-
-        # Each conntrack entry can contain two tuples:
-        #
-        # Original:
-        # src=A dst=B ... packets=X bytes=Y
-        #
-        # Reply:
-        # src=B dst=A ... packets=X bytes=Y
-        #
-        # We extract the first two src/dst/bytes groups.
-
-        tuple_pattern = re.compile(
-            r"""
-            src=(?P<src>[0-9a-fA-F:.]+)
-            \s+
-            dst=(?P<dst>[0-9a-fA-F:.]+)
-            .*?
-            bytes=(?P<bytes>\d+)
-            """,
-            re.VERBOSE,
+        return traffic.get_all_device_traffic(
+            device_ips
         )
 
-        matches = list(
-            tuple_pattern.finditer(
-                line
+    except Exception:
+
+        return {}
+
+
+def get_traffic_activity(
+    ip,
+    download_bytes,
+    upload_bytes,
+):
+    """
+    Determine whether a device is actively downloading,
+    uploading, both, or idle.
+
+    Activity is based on changes in nftables byte counters
+    between dashboard refreshes.
+    """
+
+    if (
+        download_bytes is None
+        or upload_bytes is None
+    ):
+        return "N/A"
+
+    try:
+
+        download_bytes = int(
+            download_bytes
+        )
+
+        upload_bytes = int(
+            upload_bytes
+        )
+
+    except (
+        ValueError,
+        TypeError,
+    ):
+
+        return "N/A"
+
+    now = time.time()
+
+    with TRAFFIC_ACTIVITY_LOCK:
+
+        previous = (
+            TRAFFIC_ACTIVITY_TRACKING.get(
+                ip
             )
         )
 
-        if not matches:
-            continue
+        TRAFFIC_ACTIVITY_TRACKING[ip] = {
+            "download_bytes": download_bytes,
+            "upload_bytes": upload_bytes,
+            "timestamp": now,
+        }
 
-        if len(matches) < 2:
-            continue
+    if previous is None:
+        return "Idle"
 
-        first = matches[0]
-        second = matches[1]
+    download_delta = (
+        download_bytes
+        - previous.get(
+            "download_bytes",
+            download_bytes,
+        )
+    )
 
-        first_src = first.group("src")
-        first_dst = first.group("dst")
+    upload_delta = (
+        upload_bytes
+        - previous.get(
+            "upload_bytes",
+            upload_bytes,
+        )
+    )
 
-        try:
+    # Counter reset / nftables restart.
+    if (
+        download_delta < 0
+        or upload_delta < 0
+    ):
+        return "Idle"
 
-            first_bytes = int(
-                first.group("bytes")
+    downloading = (
+        download_delta
+        >= TRAFFIC_ACTIVITY_THRESHOLD
+    )
+
+    uploading = (
+        upload_delta
+        >= TRAFFIC_ACTIVITY_THRESHOLD
+    )
+
+    if downloading and uploading:
+        return "Active"
+
+    if downloading:
+        return "Downloading"
+
+    if uploading:
+        return "Uploading"
+
+    return "Idle"
+
+
+def cleanup_traffic_activity(active_ips):
+    """
+    Remove traffic activity state for devices that are no
+    longer visible.
+    """
+
+    active_ips = set(
+        active_ips
+    )
+
+    with TRAFFIC_ACTIVITY_LOCK:
+
+        stale_ips = [
+            ip
+            for ip in TRAFFIC_ACTIVITY_TRACKING
+            if ip not in active_ips
+        ]
+
+        for ip in stale_ips:
+
+            TRAFFIC_ACTIVITY_TRACKING.pop(
+                ip,
+                None,
             )
-
-            second_bytes = int(
-                second.group("bytes")
-            )
-
-        except ValueError:
-
-            continue
-
-        # ----------------------------------------------------
-        # Determine which LAN client is involved
-        # ----------------------------------------------------
-
-        client_ip = None
-        direction = None
-
-        if lan_network is not None:
-
-            try:
-
-                first_src_ip = ipaddress.ip_address(
-                    first_src
-                )
-
-                first_dst_ip = ipaddress.ip_address(
-                    first_dst
-                )
-
-            except ValueError:
-
-                continue
-
-            if (
-                first_src_ip.version == 4
-                and first_src_ip in lan_network
-            ):
-
-                client_ip = first_src
-                direction = "upload"
-
-            elif (
-                first_dst_ip.version == 4
-                and first_dst_ip in lan_network
-            ):
-
-                client_ip = first_dst
-                direction = "download"
-
-        else:
-
-            # Fallback: compare against currently known
-            # LAN clients.
-            known_devices = get_dhcp_leases()
-
-            if first_src in known_devices:
-
-                client_ip = first_src
-                direction = "upload"
-
-            elif first_dst in known_devices:
-
-                client_ip = first_dst
-                direction = "download"
-
-        if not client_ip:
-            continue
-
-        if client_ip not in traffic:
-
-            traffic[client_ip] = {
-                "download_bytes": 0,
-                "upload_bytes": 0,
-            }
-
-        # ----------------------------------------------------
-        # Original/reply tuple interpretation
-        # ----------------------------------------------------
-
-        if direction == "upload":
-
-            traffic[client_ip][
-                "upload_bytes"
-            ] += first_bytes
-
-            traffic[client_ip][
-                "download_bytes"
-            ] += second_bytes
-
-        else:
-
-            traffic[client_ip][
-                "download_bytes"
-            ] += first_bytes
-
-            traffic[client_ip][
-                "upload_bytes"
-            ] += second_bytes
-
-    return traffic
 
 
 # ============================================================
@@ -782,6 +757,7 @@ def get_dhcp_leases():
     for path in lease_files:
 
         if os.path.exists(path):
+
             lease_file = path
             break
 
@@ -828,13 +804,18 @@ def get_dhcp_leases():
                             expiry
                         ),
                     "connected": True,
-                    "interface": "wlan0",
+                    "interface":
+                        get_network_config().get(
+                            "lan_interface",
+                            "wlan0",
+                        ),
                 }
 
     except (
         OSError,
         ValueError,
     ):
+
         return {}
 
     return leases
@@ -879,7 +860,10 @@ def get_arp_devices():
 
         try:
 
-            if ipaddress.ip_address(ip).version != 4:
+            if (
+                ipaddress.ip_address(ip).version
+                != 4
+            ):
                 continue
 
         except ValueError:
@@ -926,14 +910,14 @@ def get_arp_devices():
 
 def get_connected_devices():
     """
-    Combine DHCP lease information with ARP
-    information and add device metadata.
+    Combine DHCP lease information with ARP information,
+    nftables traffic accounting, device metadata, DHCP
+    information, and connection tracking.
     """
 
     leases = get_dhcp_leases()
-    arp = get_arp_devices()
 
-    traffic = get_device_traffic()
+    arp = get_arp_devices()
 
     devices = {}
 
@@ -943,7 +927,9 @@ def get_connected_devices():
 
     for ip, lease in leases.items():
 
-        device = dict(lease)
+        device = dict(
+            lease
+        )
 
         if ip in arp:
 
@@ -1007,6 +993,18 @@ def get_connected_devices():
         }
 
     # --------------------------------------------------------
+    # Get traffic for discovered devices
+    # --------------------------------------------------------
+
+    device_ips = list(
+        devices.keys()
+    )
+
+    traffic_data = get_device_traffic(
+        device_ips
+    )
+
+    # --------------------------------------------------------
     # Add device information
     # --------------------------------------------------------
 
@@ -1030,8 +1028,10 @@ def get_connected_devices():
         # Traffic
         # ----------------------------------------------------
 
-        device_traffic = traffic.get(
-            ip
+        device_traffic = (
+            traffic_data.get(
+                ip
+            )
         )
 
         if device_traffic is None:
@@ -1042,31 +1042,47 @@ def get_connected_devices():
             device["download_human"] = "N/A"
             device["upload_human"] = "N/A"
 
+            device["activity"] = "N/A"
+
         else:
 
-            device["download_bytes"] = (
+            download_bytes = (
                 device_traffic.get(
-                    "download_bytes",
-                    0,
+                    "download_bytes"
                 )
             )
 
-            device["upload_bytes"] = (
+            upload_bytes = (
                 device_traffic.get(
-                    "upload_bytes",
-                    0,
+                    "upload_bytes"
                 )
+            )
+
+            device["download_bytes"] = (
+                download_bytes
+            )
+
+            device["upload_bytes"] = (
+                upload_bytes
             )
 
             device["download_human"] = (
                 format_bytes(
-                    device["download_bytes"]
+                    download_bytes
                 )
             )
 
             device["upload_human"] = (
                 format_bytes(
-                    device["upload_bytes"]
+                    upload_bytes
+                )
+            )
+
+            device["activity"] = (
+                get_traffic_activity(
+                    ip,
+                    download_bytes,
+                    upload_bytes,
                 )
             )
 
@@ -1085,6 +1101,10 @@ def get_connected_devices():
         else:
 
             device["lease_remaining"] = "N/A"
+
+    cleanup_traffic_activity(
+        device_ips
+    )
 
     devices_list = list(
         devices.values()
@@ -1115,8 +1135,7 @@ def service_active(service):
 
 def get_service_statuses():
     """
-    Return the services displayed on the
-    dashboard.
+    Return the services displayed on the dashboard.
     """
 
     nat_status = nat_backend.get_nat_status()
@@ -1767,9 +1786,10 @@ body {
         .9fr
         .9fr
         1fr
-        1.1fr
-        1.1fr
         1fr
+        1fr
+        1.1fr
+        1.1fr
         1fr
         90px;
     gap: 12px;
@@ -1777,7 +1797,7 @@ body {
     padding: 13px 18px;
     border-bottom: 1px solid #20252d;
     font-size: 13px;
-    min-width: 1100px;
+    min-width: 1250px;
 }
 
 .device:last-child {
@@ -1836,6 +1856,31 @@ body {
     color: #d0a7ff;
 }
 
+.activity {
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.activity.downloading {
+    color: #8fc7ff;
+}
+
+.activity.uploading {
+    color: #d0a7ff;
+}
+
+.activity.active {
+    color: #65d985;
+}
+
+.activity.idle {
+    color: #737c89;
+}
+
+.activity.na {
+    color: #737c89;
+}
+
 .connected-time {
     display: flex;
     flex-direction: column;
@@ -1864,6 +1909,7 @@ body {
             1.4fr
             .8fr
             .8fr
+            1fr
             1fr
             1fr
             1fr
@@ -1909,7 +1955,7 @@ body {
     }
 
     .device {
-        min-width: 1100px;
+        min-width: 1250px;
     }
 }
 
@@ -2282,7 +2328,7 @@ body {
 
             <div class="sub">
                 DHCP leases, ARP neighbors, and
-                connection activity detected on the LAN
+                real network traffic detected on the LAN
             </div>
 
         </div>
@@ -2310,6 +2356,10 @@ body {
 
                 <div>
                     DHCP Lease
+                </div>
+
+                <div>
+                    Activity
                 </div>
 
                 <div>
@@ -2425,34 +2475,32 @@ function setService(service, enabled) {
 }
 
 
-function setProgress(id, value) {
+function activityClass(activity) {
 
-    const bar =
-        document.getElementById(id);
-
-    if (!bar) {
-        return;
+    if (!activity) {
+        return "na";
     }
 
-    const numeric =
-        Number(value);
+    const value =
+        activity.toLowerCase();
 
-    if (!Number.isFinite(numeric)) {
-
-        bar.style.width =
-            "0%";
-
-        return;
+    if (value === "downloading") {
+        return "downloading";
     }
 
-    bar.style.width =
-        Math.max(
-            0,
-            Math.min(
-                100,
-                numeric
-            )
-        ) + "%";
+    if (value === "uploading") {
+        return "uploading";
+    }
+
+    if (value === "active") {
+        return "active";
+    }
+
+    if (value === "idle") {
+        return "idle";
+    }
+
+    return "na";
 }
 
 
@@ -2503,6 +2551,10 @@ function renderDevices(devices) {
 
                 const lease =
                     device.lease_remaining ||
+                    "N/A";
+
+                const activity =
+                    device.activity ||
                     "N/A";
 
                 const connectedSince =
@@ -2559,6 +2611,14 @@ function renderDevices(devices) {
 
                         <div>
                             ${lease}
+                        </div>
+
+
+                        <div
+                            class="activity
+                            ${activityClass(activity)}"
+                        >
+                            ${activity}
                         </div>
 
 
@@ -2953,6 +3013,10 @@ a {
     color: #d0a7ff;
 }
 
+.activity {
+    font-family: monospace;
+}
+
 </style>
 
 </head>
@@ -3077,6 +3141,19 @@ a {
     <div class="row">
 
         <span class="label">
+            Activity
+        </span>
+
+        <span class="value activity">
+            {{ device.activity or "N/A" }}
+        </span>
+
+    </div>
+
+
+    <div class="row">
+
+        <span class="label">
             Connected Since
         </span>
 
@@ -3144,8 +3221,11 @@ a {
 
     <p style="color:#777;">
 
-        Traffic totals are collected from conntrack
-        when per-flow byte accounting is available.
+        Traffic totals are collected from nftables
+        per-device counters.
+
+        Activity is determined by changes in the
+        traffic counters between dashboard refreshes.
 
         Device type and operating system detection
         are best-effort and may show Unknown when the
@@ -3592,6 +3672,7 @@ def device_health_page():
                     "0%";
 
                 return;
+
             }
 
             bar.style.width =
@@ -3654,6 +3735,7 @@ def device_health_page():
                     cpu !== undefined
 
                         ? cpu + "%"
+
                         : "N/A";
 
 
@@ -3665,6 +3747,7 @@ def device_health_page():
                     memory !== undefined
 
                         ? memory + "%"
+
                         : "N/A";
 
 
@@ -3676,6 +3759,7 @@ def device_health_page():
                     system.temperature !== undefined
 
                         ? system.temperature + "°C"
+
                         : "N/A";
 
 
@@ -3687,6 +3771,7 @@ def device_health_page():
                     storage !== undefined
 
                         ? storage + "%"
+
                         : "N/A";
 
 
@@ -3805,6 +3890,8 @@ def device_details(ip):
             "device_type": "Unknown",
 
             "os": "Unknown",
+
+            "activity": "N/A",
 
             "lease_remaining": "N/A",
 
