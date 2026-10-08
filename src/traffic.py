@@ -192,9 +192,17 @@ def counter_object_exists(name):
     if not table:
         return False
 
-    pattern = rf"\bcounter\s+{re.escape(name)}\s*\{"
+    # nftables lists named counters like:
+    #
+    # counter upload_192_168_50_188 {
+    #     packets 0 bytes 0
+    # }
+    #
+    pattern = re.compile(
+        rf"\bcounter\s+{re.escape(name)}\s*\{{"
+    )
 
-    return re.search(pattern, table) is not None
+    return pattern.search(table) is not None
 
 
 def counter_rule_exists(ip, direction):
@@ -502,7 +510,7 @@ def remove_device_counters(ip):
         except OSError:
             success = False
 
-    # Remove the named counter objects.
+    # Remove named counter objects.
     for name in (upload_name, download_name):
         if not counter_object_exists(name):
             continue
