@@ -574,8 +574,8 @@ def get_adblock_status():
 
 def update_adblock():
     """
-    Download and install the latest HaGeZi
-    Multi PRO blocklist.
+    Download and install the latest ad-blocking
+    blocklist.
     """
 
     if adblock_backend is None:
@@ -1329,14 +1329,29 @@ body {
 
     <!-- AD BLOCKING -->
     <div class="card" style="margin-top:14px;">
+
         <div class="section-title">
+
             <h2>Ad Blocking</h2>
-            <span><span class="dot" id="adblock-dot"></span><span id="adblock-status">--</span></span>
+
+            <span>
+                <span
+                    class="dot"
+                    id="adblock-dot"
+                ></span>
+
+                <span id="adblock-status">
+                    --
+                </span>
+            </span>
+
         </div>
+
         <div class="sub">
-            HaGeZi Multi PRO ·
-            <strong id="adblock-count">0</strong> blocked domains
+            <strong id="adblock-count">0</strong>
+            domains blocked
         </div>
+
     </div>
 
     <div class="footer">
@@ -1505,6 +1520,7 @@ async function refreshDashboard() {
         setService("nat", services.nat?.enabled);
 
         const adblock = data.adblock || {};
+
         const adblockDot =
             document.getElementById("adblock-dot");
 
@@ -1512,11 +1528,15 @@ async function refreshDashboard() {
             document.getElementById("adblock-status");
 
         if (adblock.enabled) {
+
             adblockDot.className = "dot active";
             adblockStatus.textContent = "Active";
+
         } else {
+
             adblockDot.className = "dot inactive";
             adblockStatus.textContent = "Inactive";
+
         }
 
         document.getElementById("adblock-count").textContent =
@@ -1536,6 +1556,7 @@ async function refreshDashboard() {
             "PiServer Online";
 
     } catch (error) {
+
         console.error(
             "Dashboard refresh failed:",
             error
@@ -2123,7 +2144,7 @@ def dns_page():
                 )
 
             # ------------------------------------------------
-            # HaGeZi actions
+            # Built-in blocklist actions
             # ------------------------------------------------
 
             elif action == "update":
@@ -2439,7 +2460,7 @@ def dns_page():
         </div>
 
 
-        <!-- HAGEZI AD BLOCKING -->
+        <!-- AD BLOCKING -->
 
         <div class="card">
 
@@ -2462,16 +2483,6 @@ def dns_page():
                     </span>
 
                 {% endif %}
-
-            </div>
-
-            <div class="row">
-
-                Blocklist
-
-                <span class="value">
-                    HaGeZi Multi PRO
-                </span>
 
             </div>
 
