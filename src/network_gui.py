@@ -16,6 +16,7 @@ import time
 import config as gateway_config
 import monitoring
 import nat as nat_backend
+import topology_tree
 import traffic
 
 
@@ -1981,7 +1982,11 @@ body {
         <a href="/health">
             Device Health
         </a>
-
+        
+        <a href="/topology">
+            Topology
+        </a>
+        
         <a href="/network">
             Network
         </a>
@@ -3270,7 +3275,328 @@ def dashboard_api():
                 "error": str(exc)
             }
         ), 500
+# ============================================================
+# Network Topology
+# ============================================================
 
+@app.route("/topology")
+def topology_page():
+
+    topology = topology_tree.get_topology()
+
+    return render_template_string(
+        """
+        <!DOCTYPE html>
+        <html>
+
+        <head>
+
+        <meta charset="UTF-8">
+
+        <meta
+            name="viewport"
+            content="width=device-width, initial-scale=1.0"
+        >
+
+        <title>Network Topology - PiServer</title>
+
+        <style>
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            background: #0b0e12;
+            color: #f3f4f6;
+            font-family:
+                -apple-system,
+                BlinkMacSystemFont,
+                "Segoe UI",
+                sans-serif;
+            padding: 30px;
+        }
+
+        .page {
+            max-width: 1200px;
+            margin: auto;
+        }
+
+        .header {
+            margin-bottom: 24px;
+        }
+
+        .header h1 {
+            margin: 0;
+            font-size: 28px;
+        }
+
+        .header-sub {
+            color: #7f8793;
+            font-size: 13px;
+            margin-top: 5px;
+        }
+
+        .back {
+            display: inline-block;
+            color: #fff;
+            text-decoration: none;
+            margin-bottom: 20px;
+        }
+
+        .back:hover {
+            text-decoration: underline;
+        }
+
+        .card {
+            background: #12161c;
+            border: 1px solid #252b34;
+            border-radius: 12px;
+            padding: 22px;
+        }
+
+        .summary {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            margin-bottom: 24px;
+        }
+
+        .summary-item {
+            background: #171c23;
+            border: 1px solid #252b34;
+            border-radius: 8px;
+            padding: 10px 14px;
+            color: #9da5b1;
+            font-size: 12px;
+        }
+
+        .summary-item strong {
+            color: #f3f4f6;
+        }
+
+        .tree,
+        .tree ul {
+            list-style: none;
+            margin: 0;
+            padding: 0;
+        }
+
+        .tree ul {
+            margin-left: 24px;
+            padding-left: 24px;
+            border-left: 1px solid #343b46;
+        }
+
+        .tree-node {
+            position: relative;
+            margin: 10px 0;
+        }
+
+        .tree-node::before {
+            content: "";
+            position: absolute;
+            left: -24px;
+            top: 27px;
+            width: 24px;
+            border-top: 1px solid #343b46;
+        }
+
+        .tree > .tree-node::before {
+            display: none;
+        }
+
+        .node-card {
+            background: #171c23;
+            border: 1px solid #292f39;
+            border-radius: 10px;
+            padding: 13px 15px;
+        }
+
+        .node-title {
+            display: flex;
+            align-items: center;
+            gap: 9px;
+            font-size: 14px;
+            font-weight: 600;
+        }
+
+        .node-details {
+            margin-top: 5px;
+            color: #727b88;
+            font-family: monospace;
+            font-size: 12px;
+        }
+
+        .node-status {
+            margin-left: auto;
+            color: #65d985;
+            font-size: 11px;
+            font-weight: 500;
+        }
+
+        .node-status.offline {
+            color: #d96868;
+        }
+
+        .node-icon {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: #7aa2f7;
+            flex-shrink: 0;
+        }
+
+        .node-icon.offline {
+            background: #d96868;
+        }
+
+        .empty {
+            color: #727b88;
+            font-size: 13px;
+            padding: 10px 0;
+        }
+
+        </style>
+
+        </head>
+
+        <body>
+
+        <div class="page">
+
+            <a class="back" href="/">
+                ← Dashboard
+            </a>
+
+            <div class="header">
+                <h1>Network Topology</h1>
+                <div class="header-sub">
+                    Current gateway and LAN device layout
+                </div>
+            </div>
+
+            <div class="summary">
+
+                <div class="summary-item">
+                    WAN:
+                    <strong>
+                        {{ topology.metadata.wan_interface }}
+                    </strong>
+                    —
+                    <strong>
+                        {{ topology.metadata.wan_ip or "N/A" }}
+                    </strong>
+                </div>
+
+                <div class="summary-item">
+                    LAN:
+                    <strong>
+                        {{ topology.metadata.lan_interface }}
+                    </strong>
+                    —
+                    <strong>
+                        {{ topology.metadata.lan_ip }}
+                    </strong>
+                </div>
+
+                <div class="summary-item">
+                    Clients:
+                    <strong>
+                        {{ topology.metadata.client_count }}
+                    </strong>
+                </div>
+
+                {% if topology.metadata.wireguard_present %}
+                <div class="summary-item">
+                    WireGuard:
+                    <strong>
+                        {{ "Active" if topology.metadata.wireguard_active else "Inactive" }}
+                    </strong>
+                </div>
+                {% endif %}
+
+            </div>
+
+            <div class="card">
+
+                {% macro render_node(node, root=false) %}
+
+                <li class="tree-node">
+
+                    <div class="node-card">
+
+                        <div class="node-title">
+
+                            <span
+                                class="node-icon
+                                {% if node.status in ['Offline', 'Inactive'] %}
+                                    offline
+                                {% endif %}"
+                            ></span>
+
+                            <span>
+                                {{ node.label }}
+                            </span>
+
+                            <span
+                                class="node-status
+                                {% if node.status in ['Offline', 'Inactive'] %}
+                                    offline
+                                {% endif %}"
+                            >
+                                {{ node.status }}
+                            </span>
+
+                        </div>
+
+                        {% if node.details %}
+                        <div class="node-details">
+                            {{ node.details }}
+                        </div>
+                        {% endif %}
+
+                    </div>
+
+                    {% if node.children %}
+
+                    <ul>
+
+                        {% for child in node.children %}
+                            {{ render_node(child) }}
+                        {% endfor %}
+
+                    </ul>
+
+                    {% endif %}
+
+                </li>
+
+                {% endmacro %}
+
+
+                <ul class="tree">
+
+                    {{ render_node(topology, true) }}
+
+                </ul>
+
+                {% if topology.metadata.client_count == 0 %}
+                <div class="empty">
+                    No LAN clients are currently visible.
+                </div>
+                {% endif %}
+
+            </div>
+
+        </div>
+
+        </body>
+        </html>
+        """,
+        topology=topology,
+    )
 
 # ============================================================
 # Device Health
