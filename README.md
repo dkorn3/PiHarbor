@@ -1,10 +1,10 @@
 Installation
 
-PiHarbor is designed to run on a Raspberry Pi as a network gateway, providing routing, NAT, DNS, DHCP, firewalling, Wi-Fi access point functionality, traffic monitoring, and a web-based dashboard.
+PiHarbor is designed to run on a Raspberry Pi 3 Model B as a network gateway, providing routing, NAT, DNS, DHCP, firewalling, Wi-Fi access point functionality, traffic monitoring, and a web-based dashboard.
 
 Requirements
-Raspberry Pi
-Raspberry Pi OS
+Raspberry Pi 3 Model B
+Raspberry Pi OS Lite (64-bit)
 Internet connection through Ethernet
 Wi-Fi interface capable of operating as an access point
 git
