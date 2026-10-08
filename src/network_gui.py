@@ -9,7 +9,9 @@ from flask import (
 from datetime import datetime
 import ipaddress
 import os
+import re
 import subprocess
+import threading
 import time
 
 import config as gateway_config
@@ -51,12 +53,21 @@ app = Flask(__name__)
 
 
 # ============================================================
+# Device Tracking
+# ============================================================
+
+DEVICE_TRACKING = {}
+
+DEVICE_TRACKING_LOCK = threading.Lock()
+
+
+# ============================================================
 # Configuration
 # ============================================================
 
 def get_config():
     """
-    Load the current PiServer configuration.
+    Load the current PiHarbor configuration.
     """
 
     return gateway_config.load_config()
@@ -131,9 +142,42 @@ def format_bytes(value):
     Human-readable byte formatting.
     """
 
-    return monitoring.format_bytes(
-        value
-    )
+    if value is None:
+        return "N/A"
+
+    try:
+
+        value = float(value)
+
+        if value < 0:
+            return "N/A"
+
+    except (
+        ValueError,
+        TypeError,
+    ):
+
+        return "N/A"
+
+    units = [
+        "B",
+        "KB",
+        "MB",
+        "GB",
+        "TB",
+    ]
+
+    index = 0
+
+    while value >= 1024 and index < len(units) - 1:
+
+        value /= 1024
+        index += 1
+
+    if index == 0:
+        return f"{int(value)} {units[index]}"
+
+    return f"{value:.1f} {units[index]}"
 
 
 def format_timestamp(timestamp):
@@ -164,6 +208,559 @@ def format_timestamp(timestamp):
         OSError,
     ):
         return "N/A"
+
+
+def format_duration(seconds):
+    """
+    Convert seconds into a readable duration.
+    """
+
+    if seconds is None:
+        return "N/A"
+
+    try:
+
+        seconds = max(
+            0,
+            int(seconds)
+        )
+
+    except (
+        ValueError,
+        TypeError,
+    ):
+        return "N/A"
+
+    days, remainder = divmod(
+        seconds,
+        86400,
+    )
+
+    hours, remainder = divmod(
+        remainder,
+        3600,
+    )
+
+    minutes, seconds = divmod(
+        remainder,
+        60,
+    )
+
+    parts = []
+
+    if days:
+        parts.append(
+            f"{days}d"
+        )
+
+    if hours:
+        parts.append(
+            f"{hours}h"
+        )
+
+    if minutes:
+        parts.append(
+            f"{minutes}m"
+        )
+
+    if not parts:
+        parts.append(
+            f"{seconds}s"
+        )
+
+    return " ".join(parts)
+
+
+def format_lease_remaining(expiry):
+    """
+    Return the amount of time remaining on a DHCP lease.
+    """
+
+    if expiry in (
+        None,
+        "",
+        0,
+        "0",
+    ):
+        return "N/A"
+
+    try:
+
+        remaining = int(
+            float(expiry)
+        ) - int(
+            time.time()
+        )
+
+    except (
+        ValueError,
+        TypeError,
+    ):
+        return "N/A"
+
+    if remaining <= 0:
+        return "Expired"
+
+    return format_duration(
+        remaining
+    )
+
+
+# ============================================================
+# Device Identification
+# ============================================================
+
+def get_device_identity(
+    ip,
+    mac=None,
+    hostname=None,
+):
+    """
+    Best-effort device type and OS identification.
+
+    This does not actively scan the client. It uses
+    information already available from DHCP/ARP and
+    common hostname patterns.
+    """
+
+    hostname_text = (
+        hostname or ""
+    ).strip().lower()
+
+    device_type = "Unknown"
+    operating_system = "Unknown"
+
+    # --------------------------------------------------------
+    # Common hostname-based identification
+    # --------------------------------------------------------
+
+    if any(
+        value in hostname_text
+        for value in (
+            "iphone",
+            "ipad",
+        )
+    ):
+
+        device_type = "Mobile"
+        operating_system = "iOS"
+
+    elif any(
+        value in hostname_text
+        for value in (
+            "android",
+                       "galaxy",
+            "pixel",
+            "oneplus",
+            "xiaomi",
+            "redmi",
+        )
+    ):
+
+        device_type = "Mobile"
+        operating_system = "Android"
+
+    elif any(
+        value in hostname_text
+        for value in (
+            "macbook",
+            "imac",
+            "mac-mini",
+            "macmini",
+        )
+    ):
+
+        device_type = "Computer"
+        operating_system = "macOS"
+
+    elif any(
+        value in hostname_text
+        for value in (
+            "windows",
+            "desktop",
+            "pc",
+        )
+    ):
+
+        device_type = "Computer"
+        operating_system = "Windows"
+
+    elif any(
+        value in hostname_text
+        for value in (
+            "ubuntu",
+            "debian",
+            "linux",
+            "raspberry",
+            "raspberrypi",
+            "pi",
+        )
+    ):
+
+        device_type = "Computer"
+        operating_system = "Linux"
+
+    elif any(
+        value in hostname_text
+        for value in (
+            "printer",
+            "epson",
+            "canon",
+            "brother",
+            "hp-",
+        )
+    ):
+
+        device_type = "Printer"
+
+    elif any(
+        value in hostname_text
+        for value in (
+            "tv",
+            "roku",
+            "firetv",
+            "chromecast",
+            "apple-tv",
+            "appletv",
+        )
+    ):
+
+        device_type = "TV / Media"
+
+    elif any(
+        value in hostname_text
+        for value in (
+            "echo",
+            "alexa",
+            "google-home",
+            "homepod",
+        )
+    ):
+
+        device_type = "Smart Home"
+
+    elif any(
+        value in hostname_text
+        for value in (
+            "camera",
+            "cam",
+            "doorbell",
+        )
+    ):
+
+        device_type = "Camera"
+
+    # --------------------------------------------------------
+    # Generic fallbacks
+    # --------------------------------------------------------
+
+    if device_type == "Unknown":
+
+        if hostname_text:
+
+            device_type = "Network Client"
+
+        else:
+
+            device_type = "Unknown"
+
+    return {
+        "device_type": device_type,
+        "os": operating_system,
+    }
+
+
+# ============================================================
+# Connection Tracking
+# ============================================================
+
+def update_device_tracking(devices):
+    """
+    Track when devices were first observed as connected.
+
+    Tracking is kept in memory and therefore resets if the
+    Flask application restarts.
+    """
+
+    now = time.time()
+
+    with DEVICE_TRACKING_LOCK:
+
+        for device in devices:
+
+            ip = device.get("ip")
+
+            if not ip:
+                continue
+
+            if device.get("connected"):
+
+                if ip not in DEVICE_TRACKING:
+
+                    DEVICE_TRACKING[ip] = {
+                        "connected_since": now,
+                    }
+
+                connected_since = (
+                    DEVICE_TRACKING[ip]
+                    .get(
+                        "connected_since",
+                        now,
+                    )
+                )
+
+                device["connected_since"] = (
+                    connected_since
+                )
+
+                device["connected_since_text"] = (
+                    format_timestamp(
+                        connected_since
+                    )
+                )
+
+                device["connected_duration"] = (
+                    format_duration(
+                        now - connected_since
+                    )
+                )
+
+            else:
+
+                device["connected_since"] = None
+                device["connected_since_text"] = "N/A"
+                device["connected_duration"] = "N/A"
+
+                DEVICE_TRACKING.pop(
+                    ip,
+                    None,
+                )
+
+
+# ============================================================
+# Per-Device Traffic
+# ============================================================
+
+def get_device_traffic():
+    """
+    Attempt to collect per-device traffic from conntrack.
+
+    Download:
+        WAN -> LAN client
+
+    Upload:
+        LAN client -> WAN
+
+    If conntrack is unavailable or does not expose byte
+    accounting, values are returned as None.
+    """
+
+    traffic = {}
+
+    if not command_exists("conntrack"):
+
+        return traffic
+
+    result = run_command(
+        [
+            "conntrack",
+            "-L",
+            "-o",
+            "extended",
+        ],
+        timeout=8,
+    )
+
+    if result is None:
+        return traffic
+
+    if result.returncode != 0:
+        return traffic
+
+    lan_interface = (
+        get_network_config().get(
+            "lan_interface",
+            "wlan0",
+        )
+    )
+
+    # --------------------------------------------------------
+    # Get LAN subnet
+    # --------------------------------------------------------
+
+    lan_ip = get_local_ip(
+        lan_interface
+    )
+
+    lan_network = None
+
+    if lan_ip:
+
+        try:
+
+            # Default to a /24 when the backend does not
+            # provide the prefix.
+            lan_network = ipaddress.ip_network(
+                f"{lan_ip}/24",
+                strict=False,
+            )
+
+        except ValueError:
+
+            lan_network = None
+
+    # --------------------------------------------------------
+    # Parse conntrack entries
+    # --------------------------------------------------------
+
+    for line in result.stdout.splitlines():
+
+        if not line.strip():
+            continue
+
+        # Each conntrack entry can contain two tuples:
+        #
+        # Original:
+        # src=A dst=B ... packets=X bytes=Y
+        #
+        # Reply:
+        # src=B dst=A ... packets=X bytes=Y
+        #
+        # We extract the first two src/dst/bytes groups.
+
+        tuple_pattern = re.compile(
+            r"""
+            src=(?P<src>[0-9a-fA-F:.]+)
+            \s+
+            dst=(?P<dst>[0-9a-fA-F:.]+)
+            .*?
+            bytes=(?P<bytes>\d+)
+            """,
+            re.VERBOSE,
+        )
+
+        matches = list(
+            tuple_pattern.finditer(
+                line
+            )
+        )
+
+        if not matches:
+            continue
+
+        if len(matches) < 2:
+            continue
+
+        first = matches[0]
+        second = matches[1]
+
+        first_src = first.group("src")
+        first_dst = first.group("dst")
+
+        try:
+
+            first_bytes = int(
+                first.group("bytes")
+            )
+
+            second_bytes = int(
+                second.group("bytes")
+            )
+
+        except ValueError:
+
+            continue
+
+        # ----------------------------------------------------
+        # Determine which LAN client is involved
+        # ----------------------------------------------------
+
+        client_ip = None
+        direction = None
+
+        if lan_network is not None:
+
+            try:
+
+                first_src_ip = ipaddress.ip_address(
+                    first_src
+                )
+
+                first_dst_ip = ipaddress.ip_address(
+                    first_dst
+                )
+
+            except ValueError:
+
+                continue
+
+            if (
+                first_src_ip.version == 4
+                and first_src_ip in lan_network
+            ):
+
+                client_ip = first_src
+                direction = "upload"
+
+            elif (
+                first_dst_ip.version == 4
+                and first_dst_ip in lan_network
+            ):
+
+                client_ip = first_dst
+                direction = "download"
+
+        else:
+
+            # Fallback: compare against currently known
+            # LAN clients.
+            known_devices = get_dhcp_leases()
+
+            if first_src in known_devices:
+
+                client_ip = first_src
+                direction = "upload"
+
+            elif first_dst in known_devices:
+
+                client_ip = first_dst
+                direction = "download"
+
+        if not client_ip:
+            continue
+
+        if client_ip not in traffic:
+
+            traffic[client_ip] = {
+                "download_bytes": 0,
+                "upload_bytes": 0,
+            }
+
+        # ----------------------------------------------------
+        # Original/reply tuple interpretation
+        # ----------------------------------------------------
+
+        if direction == "upload":
+
+            traffic[client_ip][
+                "upload_bytes"
+            ] += first_bytes
+
+            traffic[client_ip][
+                "download_bytes"
+            ] += second_bytes
+
+        else:
+
+            traffic[client_ip][
+                "download_bytes"
+            ] += first_bytes
+
+            traffic[client_ip][
+                "upload_bytes"
+            ] += second_bytes
+
+    return traffic
 
 
 # ============================================================
@@ -224,6 +821,10 @@ def get_dhcp_leases():
                     "expiry": expiry,
                     "expiry_text":
                         format_timestamp(
+                            expiry
+                        ),
+                    "lease_remaining":
+                        format_lease_remaining(
                             expiry
                         ),
                     "connected": True,
@@ -326,13 +927,19 @@ def get_arp_devices():
 def get_connected_devices():
     """
     Combine DHCP lease information with ARP
-    information.
+    information and add device metadata.
     """
 
     leases = get_dhcp_leases()
     arp = get_arp_devices()
 
+    traffic = get_device_traffic()
+
     devices = {}
+
+    # --------------------------------------------------------
+    # DHCP devices
+    # --------------------------------------------------------
 
     for ip, lease in leases.items():
 
@@ -364,6 +971,10 @@ def get_connected_devices():
 
         devices[ip] = device
 
+    # --------------------------------------------------------
+    # ARP-only devices
+    # --------------------------------------------------------
+
     for ip, arp_device in arp.items():
 
         if ip in devices:
@@ -377,6 +988,7 @@ def get_connected_devices():
             ),
             "expiry": None,
             "expiry_text": "N/A",
+            "lease_remaining": "N/A",
             "connected":
                 arp_device.get(
                     "connected",
@@ -394,29 +1006,95 @@ def get_connected_devices():
                 ),
         }
 
+    # --------------------------------------------------------
+    # Add device information
+    # --------------------------------------------------------
+
     for ip, device in devices.items():
 
-        device.setdefault(
-            "rx_bytes",
-            None,
+        identity = get_device_identity(
+            ip=ip,
+            mac=device.get("mac"),
+            hostname=device.get("hostname"),
         )
 
-        device.setdefault(
-            "tx_bytes",
-            None,
+        device["device_type"] = (
+            identity["device_type"]
         )
 
-        device["rx_human"] = format_bytes(
-            device["rx_bytes"]
+        device["os"] = (
+            identity["os"]
         )
 
-        device["tx_human"] = format_bytes(
-            device["tx_bytes"]
+        # ----------------------------------------------------
+        # Traffic
+        # ----------------------------------------------------
+
+        device_traffic = traffic.get(
+            ip
         )
 
-    return list(
+        if device_traffic is None:
+
+            device["download_bytes"] = None
+            device["upload_bytes"] = None
+
+            device["download_human"] = "N/A"
+            device["upload_human"] = "N/A"
+
+        else:
+
+            device["download_bytes"] = (
+                device_traffic.get(
+                    "download_bytes",
+                    0,
+                )
+            )
+
+            device["upload_bytes"] = (
+                device_traffic.get(
+                    "upload_bytes",
+                    0,
+                )
+            )
+
+            device["download_human"] = (
+                format_bytes(
+                    device["download_bytes"]
+                )
+            )
+
+            device["upload_human"] = (
+                format_bytes(
+                    device["upload_bytes"]
+                )
+            )
+
+        # ----------------------------------------------------
+        # DHCP lease
+        # ----------------------------------------------------
+
+        if device.get("expiry"):
+
+            device["lease_remaining"] = (
+                format_lease_remaining(
+                    device["expiry"]
+                )
+            )
+
+        else:
+
+            device["lease_remaining"] = "N/A"
+
+    devices_list = list(
         devices.values()
     )
+
+    update_device_tracking(
+        devices_list
+    )
+
+    return devices_list
 
 
 # ============================================================
@@ -591,7 +1269,7 @@ def update_adblock():
 
 def enable_adblock():
     """
-    Enable PiServer ad blocking.
+    Enable PiHarbor ad blocking.
     """
 
     if adblock_backend is None:
@@ -602,7 +1280,7 @@ def enable_adblock():
 
 def disable_adblock():
     """
-    Disable PiServer ad blocking.
+    Disable PiHarbor ad blocking.
     """
 
     if adblock_backend is None:
@@ -697,7 +1375,7 @@ def remove_custom_blocked_domain(domain):
 
 def enable_nat():
     """
-    Enable NAT using the PiServer NAT backend.
+    Enable NAT using the PiHarbor NAT backend.
     """
 
     return nat_backend.configure_nat()
@@ -705,7 +1383,7 @@ def enable_nat():
 
 def disable_nat():
     """
-    Disable NAT using the PiServer NAT backend.
+    Disable NAT using the PiHarbor NAT backend.
     """
 
     return nat_backend.disable_nat()
@@ -801,18 +1479,31 @@ DASHBOARD_TEMPLATE = """
 <!DOCTYPE html>
 <html>
 <head>
+
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>PiServer Dashboard</title>
+
+<meta
+    name="viewport"
+    content="width=device-width, initial-scale=1.0"
+>
+
+<title>PiHarbor Dashboard</title>
 
 <style>
-* { box-sizing: border-box; }
+
+* {
+    box-sizing: border-box;
+}
 
 body {
     margin: 0;
     background: #0b0e12;
     color: #f3f4f6;
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    font-family:
+        -apple-system,
+        BlinkMacSystemFont,
+        "Segoe UI",
+        sans-serif;
 }
 
 .sidebar {
@@ -857,7 +1548,7 @@ body {
 .main {
     margin-left: 220px;
     padding: 30px;
-    max-width: 1500px;
+    max-width: 1600px;
 }
 
 .header {
@@ -891,7 +1582,8 @@ body {
 
 .grid {
     display: grid;
-    grid-template-columns: repeat(4, minmax(180px, 1fr));
+    grid-template-columns:
+        repeat(4, minmax(180px, 1fr));
     gap: 14px;
     margin-bottom: 14px;
 }
@@ -924,7 +1616,8 @@ body {
 
 .summary {
     display: grid;
-    grid-template-columns: 1.2fr 1fr 1fr 1fr;
+    grid-template-columns:
+        1.2fr 1fr 1fr 1fr;
     gap: 14px;
     margin-bottom: 14px;
 }
@@ -1033,8 +1726,13 @@ body {
     background: #626b77;
 }
 
-.dot.active { background: #55d17a; }
-.dot.inactive { background: #d65c5c; }
+.dot.active {
+    background: #55d17a;
+}
+
+.dot.inactive {
+    background: #d65c5c;
+}
 
 .service-name {
     display: flex;
@@ -1064,15 +1762,27 @@ body {
 
 .device {
     display: grid;
-    grid-template-columns: 1.5fr 1fr 1.4fr .8fr .8fr 90px;
+    grid-template-columns:
+        1.5fr
+        .9fr
+        .9fr
+        1fr
+        1.1fr
+        1.1fr
+        1fr
+        1fr
+        90px;
     gap: 12px;
     align-items: center;
     padding: 13px 18px;
     border-bottom: 1px solid #20252d;
     font-size: 13px;
+    min-width: 1100px;
 }
 
-.device:last-child { border-bottom: none; }
+.device:last-child {
+    border-bottom: none;
+}
 
 .device:hover {
     background: #171c23;
@@ -1084,7 +1794,9 @@ body {
     font-weight: 600;
 }
 
-.device a:hover { text-decoration: underline; }
+.device a:hover {
+    text-decoration: underline;
+}
 
 .table-header {
     color: #6f7885;
@@ -1101,11 +1813,33 @@ body {
     font-size: 12px;
 }
 
-.device-status.offline { color: #d96868; }
+.device-status.offline {
+    color: #d96868;
+}
 
 .mono {
     font-family: monospace;
     color: #b8bec7;
+}
+
+.traffic {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.traffic-download {
+    color: #8fc7ff;
+}
+
+.traffic-upload {
+    color: #d0a7ff;
+}
+
+.connected-time {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
 }
 
 .footer {
@@ -1115,14 +1849,45 @@ body {
     text-align: right;
 }
 
+.device-scroll {
+    overflow-x: auto;
+}
+
+@media (max-width: 1400px) {
+
+    .main {
+        max-width: none;
+    }
+
+    .device {
+        grid-template-columns:
+            1.4fr
+            .8fr
+            .8fr
+            1fr
+            1fr
+            1fr
+            1fr
+            1fr
+            80px;
+    }
+}
+
 @media (max-width: 1050px) {
-    .grid { grid-template-columns: repeat(2, 1fr); }
-    .summary { grid-template-columns: repeat(2, 1fr); }
-    .device { grid-template-columns: 1.4fr 1fr 1.2fr .8fr .8fr; }
-    .device > :last-child { display: none; }
+
+    .grid {
+        grid-template-columns:
+            repeat(2, 1fr);
+    }
+
+    .summary {
+        grid-template-columns:
+            repeat(2, 1fr);
+    }
 }
 
 @media (max-width: 800px) {
+
     .sidebar {
         position: static;
         width: 100%;
@@ -1139,172 +1904,464 @@ body {
         grid-template-columns: 1fr;
     }
 
-    .device {
-        grid-template-columns: 1fr 1fr;
+    .device-scroll {
+        overflow-x: auto;
     }
 
-    .device > :nth-child(3),
-    .device > :nth-child(4),
-    .device > :nth-child(5) {
-        display: none;
+    .device {
+        min-width: 1100px;
     }
 }
+
 </style>
+
 </head>
 
 <body>
 
 <div class="sidebar">
+
     <div class="logo">
-        PiServer
+        PiHarbor
         <span>Network Gateway</span>
     </div>
 
     <div class="nav">
-        <a href="/" class="active">Dashboard</a>
-        <a href="/health">Device Health</a>
-        <a href="/network">Network</a>
-        <a href="/dns">DNS</a>
+
+        <a href="/" class="active">
+            Dashboard
+        </a>
+
+        <a href="/health">
+            Device Health
+        </a>
+
+        <a href="/network">
+            Network
+        </a>
+
+        <a href="/dns">
+            DNS
+        </a>
+
     </div>
+
 </div>
 
 <div class="main">
 
     <div class="header">
+
         <div>
+
             <h1>Dashboard</h1>
-            <div class="header-sub">Live gateway and LAN overview</div>
+
+            <div class="header-sub">
+                Live gateway and LAN overview
+            </div>
+
         </div>
 
         <div class="status">
-            <span class="dot active" id="gateway-dot"></span>
-            <span id="gateway-status">PiServer Online</span>
+
+            <span
+                class="dot active"
+                id="gateway-dot"
+            ></span>
+
+            <span id="gateway-status">
+                PiHarbor Online
+            </span>
+
         </div>
+
     </div>
 
+
     <!-- QUICK SUMMARY -->
+
     <div class="summary">
 
         <div class="summary-card">
-            <div class="summary-label">Connected Devices</div>
-            <div class="summary-value" id="device-count">0</div>
-            <div class="sub">LAN clients currently visible</div>
+
+            <div class="summary-label">
+                Connected Devices
+            </div>
+
+            <div
+                class="summary-value"
+                id="device-count"
+            >
+                0
+            </div>
+
+            <div class="sub">
+                LAN clients currently visible
+            </div>
+
         </div>
 
-        <div class="summary-card">
-            <div class="summary-label">TCP Connections</div>
-            <div class="summary-value" id="connections">--</div>
-            <div class="sub">Active network connections</div>
-        </div>
 
         <div class="summary-card">
-            <div class="summary-label">Internet</div>
-            <div class="summary-value" id="internet">--</div>
-            <div class="sub">WAN connectivity</div>
+
+            <div class="summary-label">
+                TCP Connections
+            </div>
+
+            <div
+                class="summary-value"
+                id="connections"
+            >
+                --
+            </div>
+
+            <div class="sub">
+                Active network connections
+            </div>
+
         </div>
 
+
         <div class="summary-card">
-            <div class="summary-label">Uptime</div>
-            <div class="summary-value" id="uptime">--</div>
-            <div class="sub">System uptime</div>
+
+            <div class="summary-label">
+                Internet
+            </div>
+
+            <div
+                class="summary-value"
+                id="internet"
+            >
+                --
+            </div>
+
+            <div class="sub">
+                WAN connectivity
+            </div>
+
+        </div>
+
+
+        <div class="summary-card">
+
+            <div class="summary-label">
+                Uptime
+            </div>
+
+            <div
+                class="summary-value"
+                id="uptime"
+            >
+                --
+            </div>
+
+            <div class="sub">
+                System uptime
+            </div>
+
         </div>
 
     </div>
 
-   
+
     <!-- WAN / LAN -->
+
     <div class="grid">
 
         <div class="card network-card">
+
             <h3>WAN</h3>
+
             <div class="network-line">
-                <span class="network-name" id="wan-interface">--</span>
-                <span class="state" id="wan-state">--</span>
+
+                <span
+                    class="network-name"
+                    id="wan-interface"
+                >
+                    --
+                </span>
+
+                <span
+                    class="state"
+                    id="wan-state"
+                >
+                    --
+                </span>
+
             </div>
+
             <div class="network-line">
-                <span class="network-name">IP Address</span>
-                <span class="network-ip" id="wan-ip">--</span>
+
+                <span class="network-name">
+                    IP Address
+                </span>
+
+                <span
+                    class="network-ip"
+                    id="wan-ip"
+                >
+                    --
+                </span>
+
             </div>
+
         </div>
+
 
         <div class="card network-card">
+
             <h3>LAN</h3>
+
             <div class="network-line">
-                <span class="network-name" id="lan-interface">--</span>
-                <span class="state" id="lan-state">--</span>
+
+                <span
+                    class="network-name"
+                    id="lan-interface"
+                >
+                    --
+                </span>
+
+                <span
+                    class="state"
+                    id="lan-state"
+                >
+                    --
+                </span>
+
             </div>
+
             <div class="network-line">
-                <span class="network-name">IP Address</span>
-                <span class="network-ip" id="lan-ip">--</span>
+
+                <span class="network-name">
+                    IP Address
+                </span>
+
+                <span
+                    class="network-ip"
+                    id="lan-ip"
+                >
+                    --
+                </span>
+
             </div>
+
         </div>
 
+
         <div class="card">
+
             <h3>Network Traffic</h3>
+
             <div class="network-line">
-                <span class="network-name">RX</span>
-                <span class="network-ip" id="network-rx">--</span>
+
+                <span class="network-name">
+                    RX
+                </span>
+
+                <span
+                    class="network-ip"
+                    id="network-rx"
+                >
+                    --
+                </span>
+
             </div>
+
             <div class="network-line">
-                <span class="network-name">TX</span>
-                <span class="network-ip" id="network-tx">--</span>
+
+                <span class="network-name">
+                    TX
+                </span>
+
+                <span
+                    class="network-ip"
+                    id="network-tx"
+                >
+                    --
+                </span>
+
             </div>
+
         </div>
 
+
         <div class="card">
+
             <h3>Services</h3>
+
             <div class="service">
-                <span class="service-name"><span class="dot" id="dhcp-dot"></span>DHCP</span>
-                <span class="badge" id="dhcp-status">--</span>
+
+                <span class="service-name">
+
+                    <span
+                        class="dot"
+                        id="dhcp-dot"
+                    ></span>
+
+                    DHCP
+
+                </span>
+
+                <span
+                    class="badge"
+                    id="dhcp-status"
+                >
+                    --
+                </span>
+
             </div>
+
+
             <div class="service">
-                <span class="service-name"><span class="dot" id="dns-dot"></span>DNS</span>
-                <span class="badge" id="dns-status">--</span>
+
+                <span class="service-name">
+
+                    <span
+                        class="dot"
+                        id="dns-dot"
+                    ></span>
+
+                    DNS
+
+                </span>
+
+                <span
+                    class="badge"
+                    id="dns-status"
+                >
+                    --
+                </span>
+
             </div>
+
+
             <div class="service">
-                <span class="service-name"><span class="dot" id="nat-dot"></span>NAT</span>
-                <span class="badge" id="nat-status">--</span>
+
+                <span class="service-name">
+
+                    <span
+                        class="dot"
+                        id="nat-dot"
+                    ></span>
+
+                    NAT
+
+                </span>
+
+                <span
+                    class="badge"
+                    id="nat-status"
+                >
+                    --
+                </span>
+
             </div>
+
         </div>
 
     </div>
 
+
     <!-- DEVICES -->
+
     <div class="card devices-card">
 
         <div class="devices-head">
+
             <div class="section-title">
-                <h2>Connected Devices</h2>
-                <span id="device-updated">Updating...</span>
+
+                <h2>
+                    Connected Devices
+                </h2>
+
+                <span id="device-updated">
+                    Updating...
+                </span>
+
             </div>
+
             <div class="sub">
-                DHCP leases and ARP neighbors detected on the LAN
+                DHCP leases, ARP neighbors, and
+                connection activity detected on the LAN
             </div>
+
         </div>
 
-        <div class="device table-header">
-            <div>Device</div>
-            <div>IP Address</div>
-            <div>MAC Address</div>
-            <div>RX</div>
-            <div>TX</div>
-            <div>Status</div>
-        </div>
 
-        <div id="devices">
-            <div class="sub" style="padding:18px;">Loading devices...</div>
+        <div class="device-scroll">
+
+            <div class="device table-header">
+
+                <div>
+                    Device
+                </div>
+
+                <div>
+                    Type
+                </div>
+
+                <div>
+                    OS
+                </div>
+
+                <div>
+                    IP Address
+                </div>
+
+                <div>
+                    DHCP Lease
+                </div>
+
+                <div>
+                    Connected
+                </div>
+
+                <div>
+                    Download
+                </div>
+
+                <div>
+                    Upload
+                </div>
+
+                <div>
+                    Status
+                </div>
+
+            </div>
+
+
+            <div id="devices">
+
+                <div
+                    class="sub"
+                    style="padding:18px;"
+                >
+                    Loading devices...
+                </div>
+
+            </div>
+
         </div>
 
     </div>
 
+
     <!-- AD BLOCKING -->
-    <div class="card" style="margin-top:14px;">
+
+    <div
+        class="card"
+        style="margin-top:14px;"
+    >
 
         <div class="section-title">
 
-            <h2>Ad Blocking</h2>
+            <h2>
+                Ad Blocking
+            </h2>
 
             <span>
+
                 <span
                     class="dot"
                     id="adblock-dot"
@@ -1313,16 +2370,23 @@ body {
                 <span id="adblock-status">
                     --
                 </span>
+
             </span>
 
         </div>
 
         <div class="sub">
-            <strong id="adblock-count">0</strong>
+
+            <strong id="adblock-count">
+                0
+            </strong>
+
             domains blocked
+
         </div>
 
     </div>
+
 
     <div class="footer">
         Live data refreshes every 3 seconds
@@ -1330,170 +2394,449 @@ body {
 
 </div>
 
+
 <script>
+
 function setService(service, enabled) {
-    const dot = document.getElementById(service + "-dot");
-    const status = document.getElementById(service + "-status");
 
-    if (!dot || !status) return;
+    const dot =
+        document.getElementById(
+            service + "-dot"
+        );
 
-    dot.className = enabled ? "dot active" : "dot inactive";
-    status.textContent = enabled ? "Active" : "Inactive";
+    const status =
+        document.getElementById(
+            service + "-status"
+        );
+
+    if (!dot || !status) {
+        return;
+    }
+
+    dot.className =
+        enabled
+            ? "dot active"
+            : "dot inactive";
+
+    status.textContent =
+        enabled
+            ? "Active"
+            : "Inactive";
 }
+
 
 function setProgress(id, value) {
-    const bar = document.getElementById(id);
-    if (!bar) return;
 
-    const numeric = Number(value);
-    if (!Number.isFinite(numeric)) {
-        bar.style.width = "0%";
+    const bar =
+        document.getElementById(id);
+
+    if (!bar) {
         return;
     }
 
-    bar.style.width = Math.max(0, Math.min(100, numeric)) + "%";
+    const numeric =
+        Number(value);
+
+    if (!Number.isFinite(numeric)) {
+
+        bar.style.width =
+            "0%";
+
+        return;
+    }
+
+    bar.style.width =
+        Math.max(
+            0,
+            Math.min(
+                100,
+                numeric
+            )
+        ) + "%";
 }
+
 
 function renderDevices(devices) {
-    const container = document.getElementById("devices");
-    const count = document.getElementById("device-count");
 
-    count.textContent = devices.length;
+    const container =
+        document.getElementById(
+            "devices"
+        );
+
+    const count =
+        document.getElementById(
+            "device-count"
+        );
+
+    count.textContent =
+        devices.length;
+
 
     if (!devices.length) {
+
         container.innerHTML =
             '<div class="sub" style="padding:18px;">No connected devices detected</div>';
+
         return;
     }
 
-    container.innerHTML = devices.map(function(device) {
-        const hostname = device.hostname || "Unknown";
-        const ip = device.ip || "--";
-        const mac = device.mac || "--";
-        const rx = device.rx_human || "--";
-        const tx = device.tx_human || "--";
-        const online = device.connected !== false;
 
-        return `
-            <div class="device">
-                <div>
-                    <a href="/device/${ip}">${hostname}</a>
-                    <div class="sub">${device.interface || "LAN"}</div>
-                </div>
+    container.innerHTML =
+        devices.map(
+            function(device) {
 
-                <div class="mono">${ip}</div>
+                const hostname =
+                    device.hostname ||
+                    "Unknown";
 
-                <div class="mono">${mac}</div>
+                const ip =
+                    device.ip ||
+                    "--";
 
-                <div>${rx}</div>
+                const type =
+                    device.device_type ||
+                    "Unknown";
 
-                <div>${tx}</div>
+                const os =
+                    device.os ||
+                    "Unknown";
 
-                <div class="device-status ${online ? "" : "offline"}">
-                    <span class="dot ${online ? "active" : "inactive"}"></span>
-                    ${online ? "Online" : "Offline"}
-                </div>
-            </div>
-        `;
-    }).join("");
+                const lease =
+                    device.lease_remaining ||
+                    "N/A";
+
+                const connectedSince =
+                    device.connected_since_text ||
+                    "N/A";
+
+                const connectedDuration =
+                    device.connected_duration ||
+                    "N/A";
+
+                const download =
+                    device.download_human ||
+                    "N/A";
+
+                const upload =
+                    device.upload_human ||
+                    "N/A";
+
+                const online =
+                    device.connected !== false;
+
+
+                return `
+
+                    <div class="device">
+
+                        <div>
+
+                            <a href="/device/${ip}">
+                                ${hostname}
+                            </a>
+
+                            <div class="sub">
+                                ${device.mac || "--"}
+                            </div>
+
+                        </div>
+
+
+                        <div>
+                            ${type}
+                        </div>
+
+
+                        <div>
+                            ${os}
+                        </div>
+
+
+                        <div class="mono">
+                            ${ip}
+                        </div>
+
+
+                        <div>
+                            ${lease}
+                        </div>
+
+
+                        <div class="connected-time">
+
+                            <span>
+                                ${connectedDuration}
+                            </span>
+
+                            <span class="sub">
+                                ${connectedSince}
+                            </span>
+
+                        </div>
+
+
+                        <div class="traffic">
+
+                            <span class="traffic-download">
+                                ↓ ${download}
+                            </span>
+
+                        </div>
+
+
+                        <div class="traffic">
+
+                            <span class="traffic-upload">
+                                ↑ ${upload}
+                            </span>
+
+                        </div>
+
+
+                        <div
+                            class="device-status
+                            ${online ? "" : "offline"}"
+                        >
+
+                            <span
+                                class="dot
+                                ${online
+                                    ? "active"
+                                    : "inactive"}"
+                            ></span>
+
+                            ${online
+                                ? "Online"
+                                : "Offline"}
+
+                        </div>
+
+                    </div>
+
+                `;
+            }
+        ).join("");
 }
 
+
 async function refreshDashboard() {
+
     try {
-        const response = await fetch("/api/dashboard", {
-            cache: "no-store"
-        });
+
+        const response =
+            await fetch(
+                "/api/dashboard",
+                {
+                    cache: "no-store"
+                }
+            );
+
 
         if (!response.ok) {
-            throw new Error("Dashboard request failed");
+
+            throw new Error(
+                "Dashboard request failed"
+            );
+
         }
 
-        const data = await response.json();
 
-        const network = data.network || {};
-        const wan = network.wan || {};
-        const lan = network.lan || {};
+        const data =
+            await response.json();
 
-        document.getElementById("wan-ip").textContent =
+
+        const network =
+            data.network || {};
+
+        const wan =
+            network.wan || {};
+
+        const lan =
+            network.lan || {};
+
+
+        document.getElementById(
+            "wan-ip"
+        ).textContent =
             wan.ip || "N/A";
 
-        document.getElementById("wan-interface").textContent =
+
+        document.getElementById(
+            "wan-interface"
+        ).textContent =
             wan.interface || "WAN";
 
-        document.getElementById("wan-state").textContent =
+
+        document.getElementById(
+            "wan-state"
+        ).textContent =
             wan.state || "unknown";
 
-        document.getElementById("lan-ip").textContent =
+
+        document.getElementById(
+            "lan-ip"
+        ).textContent =
             lan.ip || "N/A";
 
-        document.getElementById("lan-interface").textContent =
+
+        document.getElementById(
+            "lan-interface"
+        ).textContent =
             lan.interface || "LAN";
 
-        document.getElementById("lan-state").textContent =
+
+        document.getElementById(
+            "lan-state"
+        ).textContent =
             lan.state || "unknown";
 
-        const internet = Boolean(network.internet);
-        const internetElement = document.getElementById("internet");
+
+        const internet =
+            Boolean(
+                network.internet
+            );
+
+        const internetElement =
+            document.getElementById(
+                "internet"
+            );
+
 
         internetElement.textContent =
-            internet ? "Online" : "Offline";
+            internet
+                ? "Online"
+                : "Offline";
+
 
         internetElement.style.color =
-            internet ? "#65d985" : "#d96868";
+            internet
+                ? "#65d985"
+                : "#d96868";
 
-        document.getElementById("connections").textContent =
+
+        document.getElementById(
+            "connections"
+        ).textContent =
+
             network.connections !== null &&
             network.connections !== undefined
+
                 ? network.connections
                 : "N/A";
 
-        document.getElementById("network-rx").textContent =
-            network.rx_human || network.rx || "--";
 
-        document.getElementById("network-tx").textContent =
-            network.tx_human || network.tx || "--";
+        document.getElementById(
+            "network-rx"
+        ).textContent =
+            network.rx_human ||
+            network.rx ||
+            "--";
 
-        const services = data.services || {};
 
-        setService("dhcp", services.dhcp?.enabled);
-        setService("dns", services.dns?.enabled);
-        setService("nat", services.nat?.enabled);
+        document.getElementById(
+            "network-tx"
+        ).textContent =
+            network.tx_human ||
+            network.tx ||
+            "--";
 
-        const adblock = data.adblock || {};
+
+        document.getElementById(
+            "uptime"
+        ).textContent =
+            data.system?.uptime_text ||
+            "N/A";
+
+
+        const services =
+            data.services || {};
+
+
+        setService(
+            "dhcp",
+            services.dhcp?.enabled
+        );
+
+        setService(
+            "dns",
+            services.dns?.enabled
+        );
+
+        setService(
+            "nat",
+            services.nat?.enabled
+        );
+
+
+        const adblock =
+            data.adblock || {};
+
 
         const adblockDot =
-            document.getElementById("adblock-dot");
+            document.getElementById(
+                "adblock-dot"
+            );
+
 
         const adblockStatus =
-            document.getElementById("adblock-status");
+            document.getElementById(
+                "adblock-status"
+            );
+
 
         if (adblock.enabled) {
 
-            adblockDot.className = "dot active";
-            adblockStatus.textContent = "Active";
+            adblockDot.className =
+                "dot active";
+
+            adblockStatus.textContent =
+                "Active";
 
         } else {
 
-            adblockDot.className = "dot inactive";
-            adblockStatus.textContent = "Inactive";
+            adblockDot.className =
+                "dot inactive";
+
+            adblockStatus.textContent =
+                "Inactive";
 
         }
 
-        document.getElementById("adblock-count").textContent =
-            adblock.blocked_domains !== undefined
+
+        document.getElementById(
+            "adblock-count"
+        ).textContent =
+
+            adblock.blocked_domains !==
+            undefined
+
                 ? adblock.blocked_domains
                 : "0";
 
-        renderDevices(data.devices || []);
 
-        document.getElementById("device-updated").textContent =
-            "Updated " + new Date().toLocaleTimeString();
+        renderDevices(
+            data.devices || []
+        );
 
-        document.getElementById("gateway-dot").className =
+
+        document.getElementById(
+            "device-updated"
+        ).textContent =
+            "Updated " +
+            new Date().toLocaleTimeString();
+
+
+        document.getElementById(
+            "gateway-dot"
+        ).className =
             "dot active";
 
-        document.getElementById("gateway-status").textContent =
-            "PiServer Online";
+
+        document.getElementById(
+            "gateway-status"
+        ).textContent =
+            "PiHarbor Online";
+
 
     } catch (error) {
 
@@ -1502,16 +2845,30 @@ async function refreshDashboard() {
             error
         );
 
-        document.getElementById("gateway-dot").className =
+
+        document.getElementById(
+            "gateway-dot"
+        ).className =
             "dot inactive";
 
-        document.getElementById("gateway-status").textContent =
+
+        document.getElementById(
+            "gateway-status"
+        ).textContent =
             "Dashboard Error";
+
     }
+
 }
 
+
 refreshDashboard();
-setInterval(refreshDashboard, 3000);
+
+setInterval(
+    refreshDashboard,
+    3000
+);
+
 </script>
 
 </body>
@@ -1536,7 +2893,9 @@ DEVICE_TEMPLATE = """
     content="width=device-width, initial-scale=1.0"
 >
 
-<title>{{ device.hostname }} - PiServer</title>
+<title>
+    {{ device.hostname }} - PiHarbor
+</title>
 
 <style>
 
@@ -1568,6 +2927,7 @@ h1 {
 .row {
     display: flex;
     justify-content: space-between;
+    gap: 20px;
     padding: 14px 0;
     border-bottom: 1px solid #282c35;
 }
@@ -1578,10 +2938,19 @@ h1 {
 
 .value {
     font-family: monospace;
+    text-align: right;
 }
 
 a {
     color: white;
+}
+
+.download {
+    color: #8fc7ff;
+}
+
+.upload {
+    color: #d0a7ff;
 }
 
 </style>
@@ -1598,11 +2967,40 @@ a {
         </a>
     </p>
 
+
     <h1>
         {{ device.hostname }}
     </h1>
 
+
     <div class="row">
+
+        <span class="label">
+            Device Type
+        </span>
+
+        <span class="value">
+            {{ device.device_type or "Unknown" }}
+        </span>
+
+    </div>
+
+
+    <div class="row">
+
+        <span class="label">
+            Operating System
+        </span>
+
+        <span class="value">
+            {{ device.os or "Unknown" }}
+        </span>
+
+    </div>
+
+
+    <div class="row">
+
         <span class="label">
             IP Address
         </span>
@@ -1610,9 +3008,12 @@ a {
         <span class="value">
             {{ device.ip }}
         </span>
+
     </div>
 
+
     <div class="row">
+
         <span class="label">
             MAC Address
         </span>
@@ -1620,9 +3021,12 @@ a {
         <span class="value">
             {{ device.mac or "Unknown" }}
         </span>
+
     </div>
 
+
     <div class="row">
+
         <span class="label">
             Interface
         </span>
@@ -1630,9 +3034,12 @@ a {
         <span class="value">
             {{ device.interface }}
         </span>
+
     </div>
 
+
     <div class="row">
+
         <span class="label">
             Connection State
         </span>
@@ -1640,59 +3047,112 @@ a {
         <span class="value">
             {{ device.state or "Unknown" }}
         </span>
+
     </div>
 
+
     <div class="row">
+
         <span class="label">
             Connection
         </span>
 
         <span class="value">
+
             {% if device.connected %}
+
                 Online
+
             {% else %}
+
                 Offline
+
             {% endif %}
+
         </span>
+
     </div>
 
+
     <div class="row">
+
         <span class="label">
-            RX
+            Connected Since
         </span>
 
         <span class="value">
-            {{ device.rx_human }}
+            {{ device.connected_since_text }}
         </span>
+
     </div>
 
+
     <div class="row">
+
         <span class="label">
-            TX
+            Connected Duration
         </span>
 
         <span class="value">
-            {{ device.tx_human }}
+            {{ device.connected_duration }}
         </span>
+
     </div>
 
+
     <div class="row">
+
         <span class="label">
-            DHCP Lease Expiration
+            DHCP Lease Remaining
         </span>
 
         <span class="value">
-            {{ device.expiry_text }}
+            {{ device.lease_remaining }}
         </span>
+
     </div>
+
+
+    <div class="row">
+
+        <span class="label">
+            Download
+        </span>
+
+        <span class="value download">
+            ↓ {{ device.download_human }}
+        </span>
+
+    </div>
+
+
+    <div class="row">
+
+        <span class="label">
+            Upload
+        </span>
+
+        <span class="value upload">
+            ↑ {{ device.upload_human }}
+        </span>
+
+    </div>
+
 
     <br>
 
+
     <p style="color:#777;">
-        Per-device bandwidth accounting can be
-        added later using nftables counters or
-        conntrack accounting.
+
+        Traffic totals are collected from conntrack
+        when per-flow byte accounting is available.
+
+        Device type and operating system detection
+        are best-effort and may show Unknown when the
+        client does not identify itself through DHCP.
+
     </p>
+
 
 </div>
 
@@ -1730,6 +3190,8 @@ def dashboard_api():
                 "error": str(exc)
             }
         ), 500
+
+
 # ============================================================
 # Device Health
 # ============================================================
@@ -1751,7 +3213,9 @@ def device_health_page():
             content="width=device-width, initial-scale=1.0"
         >
 
-        <title>Device Health - PiServer</title>
+        <title>
+            Device Health - PiHarbor
+        </title>
 
         <style>
 
@@ -1892,12 +3356,16 @@ def device_health_page():
         }
 
         @media (max-width: 1050px) {
+
             .grid {
-                grid-template-columns: repeat(2, 1fr);
+                grid-template-columns:
+                    repeat(2, 1fr);
             }
+
         }
 
         @media (max-width: 800px) {
+
             .sidebar {
                 position: static;
                 width: 100%;
@@ -1912,6 +3380,7 @@ def device_health_page():
             .grid {
                 grid-template-columns: 1fr;
             }
+
         }
 
         </style>
@@ -1923,105 +3392,217 @@ def device_health_page():
         <div class="sidebar">
 
             <div class="logo">
-                PiServer
-                <span>Network Gateway</span>
+
+                PiHarbor
+
+                <span>
+                    Network Gateway
+                </span>
+
             </div>
 
             <div class="nav">
-                <a href="/">Dashboard</a>
-                <a href="/health" class="active">Device Health</a>
-                <a href="/network">Network</a>
-                <a href="/dns">DNS</a>
+
+                <a href="/">
+                    Dashboard
+                </a>
+
+                <a
+                    href="/health"
+                    class="active"
+                >
+                    Device Health
+                </a>
+
+                <a href="/network">
+                    Network
+                </a>
+
+                <a href="/dns">
+                    DNS
+                </a>
+
             </div>
 
         </div>
+
 
         <div class="main">
 
             <div class="header">
+
                 <div>
-                    <h1>Device Health</h1>
+
+                    <h1>
+                        Device Health
+                    </h1>
+
                     <div class="header-sub">
-                        Raspberry Pi system health and resources
+                        Raspberry Pi system health
+                        and resources
                     </div>
+
                 </div>
+
             </div>
+
 
             <div class="grid">
 
                 <div class="card">
-                    <h3>CPU Usage</h3>
-                    <div class="metric" id="cpu">--</div>
-                    <div class="progress">
-                        <div id="cpu-bar"></div>
+
+                    <h3>
+                        CPU Usage
+                    </h3>
+
+                    <div
+                        class="metric"
+                        id="cpu"
+                    >
+                        --
                     </div>
+
+                    <div class="progress">
+
+                        <div id="cpu-bar"></div>
+
+                    </div>
+
                     <div class="sub">
                         Processor utilization
                     </div>
+
                 </div>
 
+
                 <div class="card">
-                    <h3>Memory</h3>
-                    <div class="metric" id="memory">--</div>
-                    <div class="progress">
-                        <div id="memory-bar"></div>
+
+                    <h3>
+                        Memory
+                    </h3>
+
+                    <div
+                        class="metric"
+                        id="memory"
+                    >
+                        --
                     </div>
+
+                    <div class="progress">
+
+                        <div id="memory-bar"></div>
+
+                    </div>
+
                     <div class="sub">
                         RAM utilization
                     </div>
+
                 </div>
 
+
                 <div class="card">
-                    <h3>Temperature</h3>
-                    <div class="metric" id="temperature">--</div>
+
+                    <h3>
+                        Temperature
+                    </h3>
+
+                    <div
+                        class="metric"
+                        id="temperature"
+                    >
+                        --
+                    </div>
+
                     <div class="sub">
                         CPU temperature
                     </div>
+
                 </div>
 
+
                 <div class="card">
-                    <h3>Storage</h3>
-                    <div class="metric" id="storage">--</div>
-                    <div class="progress">
-                        <div id="storage-bar"></div>
+
+                    <h3>
+                        Storage
+                    </h3>
+
+                    <div
+                        class="metric"
+                        id="storage"
+                    >
+                        --
                     </div>
+
+                    <div class="progress">
+
+                        <div id="storage-bar"></div>
+
+                    </div>
+
                     <div class="sub">
                         Root filesystem usage
                     </div>
+
                 </div>
 
             </div>
 
+
             <div class="health-status">
+
                 Uptime:
-                <strong id="uptime">--</strong>
+
+                <strong id="uptime">
+                    --
+                </strong>
+
                 <span style="margin-left:20px;">
+
                     Last updated:
-                    <strong id="updated">--</strong>
+
+                    <strong id="updated">
+                        --
+                    </strong>
+
                 </span>
+
             </div>
 
         </div>
+
 
         <script>
 
         function setProgress(id, value) {
 
-            const bar = document.getElementById(id);
+            const bar =
+                document.getElementById(id);
 
             if (!bar) {
                 return;
             }
 
-            const numeric = Number(value);
+            const numeric =
+                Number(value);
 
             if (!Number.isFinite(numeric)) {
-                bar.style.width = "0%";
+
+                bar.style.width =
+                    "0%";
+
                 return;
             }
 
             bar.style.width =
-                Math.max(0, Math.min(100, numeric)) + "%";
+                Math.max(
+                    0,
+                    Math.min(
+                        100,
+                        numeric
+                    )
+                ) + "%";
+
         }
 
 
@@ -2030,21 +3611,30 @@ def device_health_page():
             try {
 
                 const response =
-                    await fetch("/api/dashboard", {
-                        cache: "no-store"
-                    });
+                    await fetch(
+                        "/api/dashboard",
+                        {
+                            cache: "no-store"
+                        }
+                    );
+
 
                 if (!response.ok) {
+
                     throw new Error(
                         "Health request failed"
                     );
+
                 }
+
 
                 const data =
                     await response.json();
 
+
                 const system =
                     data.system || {};
+
 
                 const cpu =
                     system.cpu_usage;
@@ -2056,45 +3646,78 @@ def device_health_page():
                     system.storage_usage;
 
 
-                document.getElementById("cpu").textContent =
+                document.getElementById(
+                    "cpu"
+                ).textContent =
+
                     cpu !== null &&
                     cpu !== undefined
+
                         ? cpu + "%"
                         : "N/A";
 
 
-                document.getElementById("memory").textContent =
+                document.getElementById(
+                    "memory"
+                ).textContent =
+
                     memory !== null &&
                     memory !== undefined
+
                         ? memory + "%"
                         : "N/A";
 
 
-                document.getElementById("temperature").textContent =
+                document.getElementById(
+                    "temperature"
+                ).textContent =
+
                     system.temperature !== null &&
                     system.temperature !== undefined
+
                         ? system.temperature + "°C"
                         : "N/A";
 
 
-                document.getElementById("storage").textContent =
+                document.getElementById(
+                    "storage"
+                ).textContent =
+
                     storage !== null &&
                     storage !== undefined
+
                         ? storage + "%"
                         : "N/A";
 
 
-                document.getElementById("uptime").textContent =
-                    system.uptime_text || "Unknown";
+                document.getElementById(
+                    "uptime"
+                ).textContent =
+                    system.uptime_text ||
+                    "Unknown";
 
 
-                document.getElementById("updated").textContent =
+                document.getElementById(
+                    "updated"
+                ).textContent =
                     new Date().toLocaleTimeString();
 
 
-                setProgress("cpu-bar", cpu);
-                setProgress("memory-bar", memory);
-                setProgress("storage-bar", storage);
+                setProgress(
+                    "cpu-bar",
+                    cpu
+                );
+
+                setProgress(
+                    "memory-bar",
+                    memory
+                );
+
+                setProgress(
+                    "storage-bar",
+                    storage
+                );
+
 
             } catch (error) {
 
@@ -2124,6 +3747,10 @@ def device_health_page():
     )
 
 
+# ============================================================
+# Device Details Route
+# ============================================================
+
 @app.route("/device/<ip>")
 def device_details(ip):
 
@@ -2138,11 +3765,14 @@ def device_details(ip):
             400,
         )
 
+
     devices = (
         get_connected_devices()
     )
 
+
     device = None
+
 
     for candidate in devices:
 
@@ -2151,24 +3781,45 @@ def device_details(ip):
             device = candidate
             break
 
+
     if device is None:
 
         device = {
+
             "hostname": "Unknown",
+
             "ip": ip,
+
             "mac": None,
-            "interface": (
+
+            "interface":
                 get_network_config().get(
                     "lan_interface",
                     "wlan0",
-                )
-            ),
+                ),
+
             "state": "unknown",
+
             "connected": False,
-            "rx_human": "N/A",
-            "tx_human": "N/A",
+
+            "device_type": "Unknown",
+
+            "os": "Unknown",
+
+            "lease_remaining": "N/A",
+
+            "connected_since_text": "N/A",
+
+            "connected_duration": "N/A",
+
+            "download_human": "N/A",
+
+            "upload_human": "N/A",
+
             "expiry_text": "N/A",
+
         }
+
 
     return render_template_string(
         DEVICE_TEMPLATE,
@@ -2213,31 +3864,39 @@ def network_page():
             url_for("network_page")
         )
 
+
     network = get_network_config()
+
 
     wan_interface = network.get(
         "wan_interface",
         "eth0",
     )
 
+
     lan_interface = network.get(
         "lan_interface",
         "wlan0",
     )
 
+
     wan = monitoring.get_interface_health(
         wan_interface
     )
+
 
     lan = monitoring.get_interface_health(
         lan_interface
     )
 
+
     nat = nat_backend.get_nat_status()
+
 
     return render_template_string(
         """
         <!DOCTYPE html>
+
         <html>
 
         <head>
@@ -2247,7 +3906,9 @@ def network_page():
             content="width=device-width"
         >
 
-        <title>Network - PiServer</title>
+        <title>
+            Network - PiHarbor
+        </title>
 
         <style>
 
@@ -2285,16 +3946,24 @@ def network_page():
         <body>
 
         <p>
+
             <a href="/">
                 ← Dashboard
             </a>
+
         </p>
 
-        <h1>Network</h1>
+
+        <h1>
+            Network
+        </h1>
+
 
         <div class="card">
 
-            <h2>WAN</h2>
+            <h2>
+                WAN
+            </h2>
 
             <p>
                 Interface:
@@ -2313,9 +3982,12 @@ def network_page():
 
         </div>
 
+
         <div class="card">
 
-            <h2>LAN</h2>
+            <h2>
+                LAN
+            </h2>
 
             <p>
                 Interface:
@@ -2334,9 +4006,12 @@ def network_page():
 
         </div>
 
+
         <div class="card">
 
-            <h2>NAT</h2>
+            <h2>
+                NAT
+            </h2>
 
             <p>
 
@@ -2349,6 +4024,7 @@ def network_page():
                 {% endif %}
 
             </p>
+
 
             <form method="post">
 
@@ -2377,8 +4053,10 @@ def network_page():
         </div>
 
         </body>
+
         </html>
         """,
+
         wan=wan,
         lan=lan,
         nat=nat,
@@ -2411,15 +4089,18 @@ def dns_page():
     message = None
     message_type = None
 
+
     if request.method == "POST":
 
         action = request.form.get(
             "adblock_action"
         )
 
+
         custom_action = request.form.get(
             "custom_action"
         )
+
 
         try:
 
@@ -2434,22 +4115,26 @@ def dns_page():
                     "",
                 )
 
+
                 result = (
                     add_custom_blocked_domain(
                         domain
                     )
                 )
 
+
                 message = result.get(
                     "message",
                     "Custom domain operation completed.",
                 )
+
 
                 message_type = (
                     "success"
                     if result.get("success")
                     else "error"
                 )
+
 
             elif custom_action == "remove":
 
@@ -2458,22 +4143,26 @@ def dns_page():
                     "",
                 )
 
+
                 result = (
                     remove_custom_blocked_domain(
                         domain
                     )
                 )
 
+
                 message = result.get(
                     "message",
                     "Custom domain operation completed.",
                 )
+
 
                 message_type = (
                     "success"
                     if result.get("success")
                     else "error"
                 )
+
 
             # ------------------------------------------------
             # Built-in blocklist actions
@@ -2483,10 +4172,12 @@ def dns_page():
 
                 result = update_adblock()
 
+
                 message = result.get(
                     "message",
                     "Blocklist update completed.",
                 )
+
 
                 message_type = (
                     "success"
@@ -2494,39 +4185,56 @@ def dns_page():
                     else "error"
                 )
 
+
             elif action == "enable":
 
                 success = enable_adblock()
 
+
                 message = (
+
                     "Ad blocking enabled."
+
                     if success
+
                     else
+
                     "Failed to enable ad blocking."
+
                 )
+
 
                 message_type = (
                     "success"
                     if success
                     else "error"
                 )
+
 
             elif action == "disable":
 
                 success = disable_adblock()
 
+
                 message = (
+
                     "Ad blocking disabled."
+
                     if success
+
                     else
+
                     "Failed to disable ad blocking."
+
                 )
+
 
                 message_type = (
                     "success"
                     if success
                     else "error"
                 )
+
 
         except Exception as exc:
 
@@ -2536,13 +4244,17 @@ def dns_page():
 
             message_type = "error"
 
+
     status = get_adblock_status()
+
 
     custom_domains = (
         get_custom_blocked_domains()
     )
 
+
     dns_health = None
+
 
     if dns_backend is not None:
 
@@ -2556,9 +4268,11 @@ def dns_page():
 
             dns_health = None
 
+
     return render_template_string(
         """
         <!DOCTYPE html>
+
         <html>
 
         <head>
@@ -2568,7 +4282,9 @@ def dns_page():
             content="width=device-width"
         >
 
-        <title>DNS - PiServer</title>
+        <title>
+            DNS - PiHarbor
+        </title>
 
         <style>
 
@@ -2700,12 +4416,17 @@ def dns_page():
         <body>
 
         <p>
+
             <a href="/">
                 ← Dashboard
             </a>
+
         </p>
 
-        <h1>DNS</h1>
+
+        <h1>
+            DNS
+        </h1>
 
 
         {% if message %}
@@ -2721,7 +4442,10 @@ def dns_page():
 
         <div class="card">
 
-            <h2>DNS Service</h2>
+            <h2>
+                DNS Service
+            </h2>
+
 
             {% if dns_health %}
 
@@ -2735,6 +4459,7 @@ def dns_page():
 
                 </div>
 
+
                 <div class="row">
 
                     Connectivity
@@ -2744,6 +4469,7 @@ def dns_page():
                     </span>
 
                 </div>
+
 
                 <div class="row">
 
@@ -2760,6 +4486,7 @@ def dns_page():
                     </span>
 
                 </div>
+
 
                 <div class="row">
 
@@ -2781,6 +4508,7 @@ def dns_page():
 
                 </div>
 
+
             {% else %}
 
                 <p>
@@ -2796,7 +4524,10 @@ def dns_page():
 
         <div class="card">
 
-            <h2>Ad Blocking</h2>
+            <h2>
+                Ad Blocking
+            </h2>
+
 
             <div class="row">
 
@@ -2818,6 +4549,7 @@ def dns_page():
 
             </div>
 
+
             <div class="row">
 
                 Blocked Domains
@@ -2827,6 +4559,7 @@ def dns_page():
                 </span>
 
             </div>
+
 
             <div class="row">
 
@@ -2848,7 +4581,9 @@ def dns_page():
 
             </div>
 
+
             <br>
+
 
             <form method="post">
 
@@ -2874,6 +4609,7 @@ def dns_page():
 
                 {% endif %}
 
+
                 <button
                     class="button"
                     name="adblock_action"
@@ -2891,12 +4627,18 @@ def dns_page():
 
         <div class="card">
 
-            <h2>Custom Blocklist</h2>
+            <h2>
+                Custom Blocklist
+            </h2>
+
 
             <p style="color:#888;">
+
                 Add your own domains to block.
                 You can enter a domain or paste a URL.
+
             </p>
+
 
             <form method="post">
 
@@ -2909,6 +4651,7 @@ def dns_page():
                         placeholder="example.com"
                         required
                     >
+
 
                     <button
                         class="button"
@@ -2923,9 +4666,11 @@ def dns_page():
 
             </form>
 
+
             <h3>
                 Custom Blocked Domains
             </h3>
+
 
             {% if custom_domains %}
 
@@ -2937,6 +4682,7 @@ def dns_page():
                             {{ domain }}
                         </span>
 
+
                         <form
                             method="post"
                             class="remove-form"
@@ -2947,6 +4693,7 @@ def dns_page():
                                 name="domain"
                                 value="{{ domain }}"
                             >
+
 
                             <button
                                 class="button"
@@ -2963,6 +4710,7 @@ def dns_page():
 
                 {% endfor %}
 
+
             {% else %}
 
                 <p style="color:#777;">
@@ -2973,10 +4721,12 @@ def dns_page():
 
         </div>
 
+
         </body>
 
         </html>
         """,
+
         status=status,
         dns_health=dns_health,
         message=message,
@@ -2994,7 +4744,7 @@ def firewall_page():
 
     return simple_page(
         "Firewall",
-        "PiServer nftables firewall controls."
+        "PiHarbor nftables firewall controls."
     )
 
 
@@ -3020,9 +4770,11 @@ def monitoring_page():
 
     data = monitoring.get_dashboard_metrics()
 
+
     return render_template_string(
         """
         <!DOCTYPE html>
+
         <html>
 
         <head>
@@ -3032,7 +4784,9 @@ def monitoring_page():
             content="width=device-width"
         >
 
-        <title>Monitoring - PiServer</title>
+        <title>
+            Monitoring - PiHarbor
+        </title>
 
         <style>
 
@@ -3062,36 +4816,49 @@ def monitoring_page():
         <body>
 
         <p>
+
             <a href="/">
                 ← Dashboard
             </a>
+
         </p>
 
-        <h1>Monitoring</h1>
+
+        <h1>
+            Monitoring
+        </h1>
+
 
         <div class="card">
 
-            <h2>System</h2>
+            <h2>
+                System
+            </h2>
+
 
             <p>
                 CPU:
                 {{ data.system.cpu_usage }}%
             </p>
 
+
             <p>
                 Memory:
                 {{ data.system.memory_usage }}%
             </p>
+
 
             <p>
                 Temperature:
                 {{ data.system.temperature }}°C
             </p>
 
+
             <p>
                 Storage:
                 {{ data.system.storage_usage }}%
             </p>
+
 
             <p>
                 Uptime:
@@ -3100,19 +4867,25 @@ def monitoring_page():
 
         </div>
 
+
         <div class="card">
 
-            <h2>Network</h2>
+            <h2>
+                Network
+            </h2>
+
 
             <p>
                 Internet:
                 {{ data.network.internet }}
             </p>
 
+
             <p>
                 TCP connections:
                 {{ data.network.connections }}
             </p>
+
 
             <p>
                 Default route:
@@ -3121,9 +4894,12 @@ def monitoring_page():
 
         </div>
 
+
         </body>
+
         </html>
         """,
+
         data=data,
     )
 
@@ -3136,6 +4912,7 @@ def monitoring_page():
 def logs_page():
 
     logs = []
+
 
     if gateway_logging is not None:
 
@@ -3155,9 +4932,11 @@ def logs_page():
 
             logs = []
 
+
     return render_template_string(
         """
         <!DOCTYPE html>
+
         <html>
 
         <head>
@@ -3167,7 +4946,9 @@ def logs_page():
             content="width=device-width"
         >
 
-        <title>Logs - PiServer</title>
+        <title>
+            Logs - PiHarbor
+        </title>
 
         <style>
 
@@ -3201,12 +4982,18 @@ def logs_page():
         <body>
 
         <p>
+
             <a href="/">
                 ← Dashboard
             </a>
+
         </p>
 
-        <h1>Logs</h1>
+
+        <h1>
+            Logs
+        </h1>
+
 
         <div class="card">
 
@@ -3224,10 +5011,12 @@ def logs_page():
 
         </div>
 
+
         </body>
 
         </html>
         """,
+
         logs=logs,
     )
 
@@ -3244,6 +5033,7 @@ def simple_page(title, description):
     return render_template_string(
         """
         <!DOCTYPE html>
+
         <html>
 
         <head>
@@ -3253,7 +5043,9 @@ def simple_page(title, description):
             content="width=device-width"
         >
 
-        <title>{{ title }} - PiServer</title>
+        <title>
+            {{ title }} - PiHarbor
+        </title>
 
         <style>
 
@@ -3283,10 +5075,13 @@ def simple_page(title, description):
         <body>
 
         <p>
+
             <a href="/">
                 ← Dashboard
             </a>
+
         </p>
+
 
         <div class="card">
 
@@ -3294,16 +5089,19 @@ def simple_page(title, description):
                 {{ title }}
             </h1>
 
+
             <p>
                 {{ description }}
             </p>
 
         </div>
 
+
         </body>
 
         </html>
         """,
+
         title=title,
         description=description,
     )
