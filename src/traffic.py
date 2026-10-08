@@ -14,8 +14,6 @@ import threading
 TRAFFIC_TABLE = "piharbor_traffic"
 TRAFFIC_CHAIN = "forward"
 
-# RLock is required because add_device_counters() calls
-# ensure_traffic_table(), which also acquires this lock.
 _counter_lock = threading.RLock()
 
 
@@ -319,14 +317,12 @@ def add_device_counters(ip):
         upload_name = counter_name(ip, "upload")
         download_name = counter_name(ip, "download")
 
-        # Named counters must exist before rules can reference them.
         if not create_counter_object(upload_name):
             return False
 
         if not create_counter_object(download_name):
             return False
 
-        # Add the rules that use those counters.
         if not add_counter_rule(ip, "upload"):
             return False
 
@@ -352,27 +348,20 @@ def find_counter_handle(rules, name):
 
 def parse_counter(table, name):
     """
-    Parse packet and byte values for a named nftables counter object.
+    Parse packet and byte values for a named nftables counter.
 
-    Example nftables output:
+    Handles nftables output such as:
 
-        counter upload_192_168_50_188 {
-            packets 6459 bytes 1969586
+        counter upload_192_168_50_188 { # handle 6
+                packets 0 bytes 0
         }
-
-    Returns:
-        {
-            "packets": int,
-            "bytes": int
-        }
-
-    or None if the counter cannot be found.
     """
     if not table:
         return None
 
     pattern = re.compile(
         rf'counter\s+{re.escape(name)}\s*\{{'
+        rf'(?:\s*#\s*handle\s+\d+)?'
         rf'\s*packets\s+(\d+)\s+bytes\s+(\d+)'
     )
 
@@ -399,8 +388,6 @@ def get_device_traffic(ip):
     if not add_device_counters(ip):
         return None
 
-    # Packet/byte totals are stored in the named counter objects,
-    # which are visible in the complete table output.
     table = get_traffic_table()
 
     upload = parse_counter(
@@ -487,7 +474,6 @@ def remove_device_counters(ip):
 
         success = True
 
-        # Remove rules first.
         for name in (upload_name, download_name):
             handle = find_counter_handle(rules, name)
 
@@ -517,7 +503,6 @@ def remove_device_counters(ip):
             except OSError:
                 success = False
 
-        # Remove named counter objects.
         for name in (upload_name, download_name):
             if not counter_object_exists(name):
                 continue
