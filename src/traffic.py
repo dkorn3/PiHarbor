@@ -14,7 +14,9 @@ import threading
 TRAFFIC_TABLE = "piharbor_traffic"
 TRAFFIC_CHAIN = "forward"
 
-_counter_lock = threading.Lock()
+# RLock is required because add_device_counters() calls
+# ensure_traffic_table(), which also acquires this lock.
+_counter_lock = threading.RLock()
 
 
 def run_command(command):
@@ -192,12 +194,6 @@ def counter_object_exists(name):
     if not table:
         return False
 
-    # nftables lists named counters like:
-    #
-    # counter upload_192_168_50_188 {
-    #     packets 0 bytes 0
-    # }
-    #
     pattern = re.compile(
         rf"\bcounter\s+{re.escape(name)}\s*\{{"
     )
@@ -354,9 +350,15 @@ def find_counter_handle(rules, name):
     return int(match.group(1))
 
 
-def parse_counter(rules, name):
+def parse_counter(table, name):
     """
-    Parse packet and byte values for a named nftables counter.
+    Parse packet and byte values for a named nftables counter object.
+
+    Example nftables output:
+
+        counter upload_192_168_50_188 {
+            packets 6459 bytes 1969586
+        }
 
     Returns:
         {
@@ -366,14 +368,15 @@ def parse_counter(rules, name):
 
     or None if the counter cannot be found.
     """
-    if not rules:
+    if not table:
         return None
 
     pattern = re.compile(
-        rf'counter packets (\d+) bytes (\d+) name "{re.escape(name)}"'
+        rf'counter\s+{re.escape(name)}\s*\{{'
+        rf'\s*packets\s+(\d+)\s+bytes\s+(\d+)'
     )
 
-    match = pattern.search(rules)
+    match = pattern.search(table)
 
     if not match:
         return None
@@ -396,15 +399,17 @@ def get_device_traffic(ip):
     if not add_device_counters(ip):
         return None
 
-    rules = get_traffic_rules()
+    # Packet/byte totals are stored in the named counter objects,
+    # which are visible in the complete table output.
+    table = get_traffic_table()
 
     upload = parse_counter(
-        rules,
+        table,
         counter_name(ip, "upload"),
     )
 
     download = parse_counter(
-        rules,
+        table,
         counter_name(ip, "download"),
     )
 
@@ -450,14 +455,15 @@ def get_all_device_traffic(ips):
     traffic = {}
 
     for ip in valid_ips:
-        if add_device_counters(ip):
-            traffic[ip] = get_device_traffic(ip)
+        if not add_device_counters(ip):
+            continue
 
-    return {
-        ip: data
-        for ip, data in traffic.items()
-        if data is not None
-    }
+        data = get_device_traffic(ip)
+
+        if data is not None:
+            traffic[ip] = data
+
+    return traffic
 
 
 def remove_device_counters(ip):
@@ -470,73 +476,74 @@ def remove_device_counters(ip):
     if not valid_ipv4(ip):
         return False
 
-    rules = get_traffic_rules()
+    with _counter_lock:
+        rules = get_traffic_rules()
 
-    if not rules:
-        return False
+        if not rules:
+            return False
 
-    upload_name = counter_name(ip, "upload")
-    download_name = counter_name(ip, "download")
+        upload_name = counter_name(ip, "upload")
+        download_name = counter_name(ip, "download")
 
-    success = True
+        success = True
 
-    # Remove rules first.
-    for name in (upload_name, download_name):
-        handle = find_counter_handle(rules, name)
+        # Remove rules first.
+        for name in (upload_name, download_name):
+            handle = find_counter_handle(rules, name)
 
-        if handle is None:
-            continue
+            if handle is None:
+                continue
 
-        try:
-            result = subprocess.run(
-                [
-                    "nft",
-                    "delete",
-                    "rule",
-                    "inet",
-                    TRAFFIC_TABLE,
-                    TRAFFIC_CHAIN,
-                    "handle",
-                    str(handle),
-                ],
-                capture_output=True,
-                text=True,
-                check=False,
-            )
+            try:
+                result = subprocess.run(
+                    [
+                        "nft",
+                        "delete",
+                        "rule",
+                        "inet",
+                        TRAFFIC_TABLE,
+                        TRAFFIC_CHAIN,
+                        "handle",
+                        str(handle),
+                    ],
+                    capture_output=True,
+                    text=True,
+                    check=False,
+                )
 
-            if result.returncode != 0:
+                if result.returncode != 0:
+                    success = False
+
+            except OSError:
                 success = False
 
-        except OSError:
-            success = False
+        # Remove named counter objects.
+        for name in (upload_name, download_name):
+            if not counter_object_exists(name):
+                continue
 
-    # Remove named counter objects.
-    for name in (upload_name, download_name):
-        if not counter_object_exists(name):
-            continue
+            try:
+                result = subprocess.run(
+                    [
+                        "nft",
+                        "delete",
+                        "counter",
+                        "inet",
+                        TRAFFIC_TABLE,
+                        name,
+                    ],
+                    capture_output=True,
+                    text=True,
+                    check=False,
+                )
 
-        try:
-            result = subprocess.run(
-                [
-                    "nft",
-                    "delete",
-                    "counter",
-                    "inet",
-                    TRAFFIC_TABLE,
-                    name,
-                ],
-                capture_output=True,
-                text=True,
-                check=False,
-            )
+                if result.returncode != 0:
+                    success = False
 
-            if result.returncode != 0:
+            except OSError:
                 success = False
 
-        except OSError:
-            success = False
-
-    return success
+        return success
 
 
 def reset_device_counters(ip):
