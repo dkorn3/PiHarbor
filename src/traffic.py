@@ -9,7 +9,6 @@ import ipaddress
 import re
 import subprocess
 import threading
-import time
 
 
 TRAFFIC_TABLE = "piharbor_traffic"
@@ -46,6 +45,7 @@ def nft_available():
             text=True,
             check=False,
         )
+
         return result.returncode == 0
 
     except OSError:
@@ -66,7 +66,7 @@ def counter_name(ip, direction):
     """
     Generate a safe nftables counter name.
 
-    Example:
+    Examples:
         upload_192_168_50_10
         download_192_168_50_10
     """
@@ -78,8 +78,8 @@ def ensure_traffic_table():
     """
     Create the PiHarbor nftables traffic accounting table and chain.
 
-    The chain uses a low priority so the accounting rules run
-    alongside the existing firewall/NAT configuration.
+    The chain runs on the forward hook so traffic routed through
+    PiHarbor can be counted without modifying the existing firewall.
     """
     if not nft_available():
         return False
@@ -98,56 +98,60 @@ def ensure_traffic_table():
         if existing:
             return True
 
-        commands = [
-            [
-                "nft",
-                "add",
-                "table",
-                "inet",
-                TRAFFIC_TABLE,
-            ],
-            [
-                "nft",
-                "add",
-                "chain",
-                "inet",
-                TRAFFIC_TABLE,
-                TRAFFIC_CHAIN,
-                "{",
-                "type",
-                "filter",
-                "hook",
-                "forward",
-                "priority",
-                "-10",
-                ";",
-                "policy",
-                "accept",
-                ";",
-                "}",
-            ],
-        ]
+        try:
+            result = subprocess.run(
+                [
+                    "nft",
+                    "add",
+                    "table",
+                    "inet",
+                    TRAFFIC_TABLE,
+                ],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
 
-        for command in commands:
-            try:
-                result = subprocess.run(
-                    command,
-                    capture_output=True,
-                    text=True,
-                    check=False,
-                )
-
-                if result.returncode != 0:
-                    return False
-
-            except OSError:
+            if result.returncode != 0:
                 return False
+
+            result = subprocess.run(
+                [
+                    "nft",
+                    "add",
+                    "chain",
+                    "inet",
+                    TRAFFIC_TABLE,
+                    TRAFFIC_CHAIN,
+                    "{",
+                    "type",
+                    "filter",
+                    "hook",
+                    "forward",
+                    "priority",
+                    "-10",
+                    ";",
+                    "policy",
+                    "accept",
+                    ";",
+                    "}",
+                ],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+
+            if result.returncode != 0:
+                return False
+
+        except OSError:
+            return False
 
         return True
 
 
 def get_traffic_rules():
-    """Return the current PiHarbor traffic accounting rules."""
+    """Return the current PiHarbor traffic accounting chain."""
     if not nft_available():
         return ""
 
@@ -164,8 +168,37 @@ def get_traffic_rules():
     )
 
 
-def counter_exists(ip, direction):
-    """Check whether a traffic counter rule already exists."""
+def get_traffic_table():
+    """Return the complete PiHarbor traffic accounting table."""
+    if not nft_available():
+        return ""
+
+    return run_command(
+        [
+            "nft",
+            "-a",
+            "list",
+            "table",
+            "inet",
+            TRAFFIC_TABLE,
+        ]
+    )
+
+
+def counter_object_exists(name):
+    """Return True if a named nftables counter object exists."""
+    table = get_traffic_table()
+
+    if not table:
+        return False
+
+    pattern = rf"\bcounter\s+{re.escape(name)}\s*\{"
+
+    return re.search(pattern, table) is not None
+
+
+def counter_rule_exists(ip, direction):
+    """Return True if a counter rule exists for the device."""
     rules = get_traffic_rules()
 
     if not rules:
@@ -176,9 +209,95 @@ def counter_exists(ip, direction):
     return f'counter name "{name}"' in rules
 
 
+def create_counter_object(name):
+    """Create a named nftables counter object."""
+    if counter_object_exists(name):
+        return True
+
+    try:
+        result = subprocess.run(
+            [
+                "nft",
+                "add",
+                "counter",
+                "inet",
+                TRAFFIC_TABLE,
+                name,
+            ],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+
+        return result.returncode == 0
+
+    except OSError:
+        return False
+
+
+def add_counter_rule(ip, direction):
+    """
+    Add an nftables rule using an existing named counter.
+
+    Upload:
+        ip saddr <device>
+
+    Download:
+        ip daddr <device>
+    """
+    if not valid_ipv4(ip):
+        return False
+
+    name = counter_name(ip, direction)
+
+    if counter_rule_exists(ip, direction):
+        return True
+
+    if direction == "upload":
+        address_expression = [
+            "ip",
+            "saddr",
+            ip,
+        ]
+
+    elif direction == "download":
+        address_expression = [
+            "ip",
+            "daddr",
+            ip,
+        ]
+
+    else:
+        return False
+
+    try:
+        result = subprocess.run(
+            [
+                "nft",
+                "add",
+                "rule",
+                "inet",
+                TRAFFIC_TABLE,
+                TRAFFIC_CHAIN,
+                *address_expression,
+                "counter",
+                "name",
+                name,
+            ],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+
+        return result.returncode == 0
+
+    except OSError:
+        return False
+
+
 def add_device_counters(ip):
     """
-    Add upload/download counters for a LAN device.
+    Create upload and download accounting for a LAN device.
 
     Upload:
         LAN device -> Internet
@@ -189,122 +308,28 @@ def add_device_counters(ip):
     if not valid_ipv4(ip):
         return False
 
-    if not ensure_traffic_table():
-        return False
-
-    upload_name = counter_name(ip, "upload")
-    download_name = counter_name(ip, "download")
-
     with _counter_lock:
-        if not counter_exists(ip, "upload"):
-            try:
-                result = subprocess.run(
-                    [
-                        "nft",
-                        "add",
-                        "rule",
-                        "inet",
-                        TRAFFIC_TABLE,
-                        TRAFFIC_CHAIN,
-                        "ip",
-                        "saddr",
-                        ip,
-                        "counter",
-                        "name",
-                        upload_name,
-                    ],
-                    capture_output=True,
-                    text=True,
-                    check=False,
-                )
+        if not ensure_traffic_table():
+            return False
 
-                if result.returncode != 0:
-                    return False
+        upload_name = counter_name(ip, "upload")
+        download_name = counter_name(ip, "download")
 
-            except OSError:
-                return False
+        # Named counters must exist before rules can reference them.
+        if not create_counter_object(upload_name):
+            return False
 
-        if not counter_exists(ip, "download"):
-            try:
-                result = subprocess.run(
-                    [
-                        "nft",
-                        "add",
-                        "rule",
-                        "inet",
-                        TRAFFIC_TABLE,
-                        TRAFFIC_CHAIN,
-                        "ip",
-                        "daddr",
-                        ip,
-                        "counter",
-                        "name",
-                        download_name,
-                    ],
-                    capture_output=True,
-                    text=True,
-                    check=False,
-                )
+        if not create_counter_object(download_name):
+            return False
 
-                if result.returncode != 0:
-                    return False
+        # Add the rules that use those counters.
+        if not add_counter_rule(ip, "upload"):
+            return False
 
-            except OSError:
-                return False
+        if not add_counter_rule(ip, "download"):
+            return False
 
     return True
-
-
-def remove_device_counters(ip):
-    """
-    Remove traffic accounting rules for a device.
-
-    This is optional and should generally only be used when
-    cleaning up old/stale devices.
-    """
-    if not valid_ipv4(ip):
-        return False
-
-    rules = get_traffic_rules()
-
-    if not rules:
-        return False
-
-    upload_name = counter_name(ip, "upload")
-    download_name = counter_name(ip, "download")
-
-    success = True
-
-    for name in (upload_name, download_name):
-        handle = find_counter_handle(rules, name)
-
-        if handle is None:
-            continue
-
-        try:
-            result = subprocess.run(
-                [
-                    "nft",
-                    "delete",
-                    "rule",
-                    "inet",
-                    TRAFFIC_TABLE,
-                    TRAFFIC_CHAIN,
-                    "handle",
-                    str(handle),
-                ],
-                capture_output=True,
-                text=True,
-                check=False,
-            )
-
-            if result.returncode != 0:
-                success = False
-
-        except OSError:
-            success = False
-
-    return success
 
 
 def find_counter_handle(rules, name):
@@ -323,7 +348,7 @@ def find_counter_handle(rules, name):
 
 def parse_counter(rules, name):
     """
-    Parse packet/byte values for a named nftables counter.
+    Parse packet and byte values for a named nftables counter.
 
     Returns:
         {
@@ -354,14 +379,14 @@ def parse_counter(rules, name):
 def get_device_traffic(ip):
     """
     Return traffic statistics for one LAN device.
+
+    Returns None if traffic accounting is unavailable.
     """
     if not valid_ipv4(ip):
         return None
 
-    if not ensure_traffic_table():
+    if not add_device_counters(ip):
         return None
-
-    add_device_counters(ip)
 
     rules = get_traffic_rules()
 
@@ -396,54 +421,122 @@ def get_all_device_traffic(ips):
     Returns:
         {
             "192.168.50.10": {
-                "download_bytes": ...,
-                "upload_bytes": ...,
-                ...
+                "download_bytes": 123456,
+                "upload_bytes": 7890,
+                "download_packets": 100,
+                "upload_packets": 20,
             }
         }
     """
+    valid_ips = [
+        ip for ip in ips
+        if valid_ipv4(ip)
+    ]
+
+    if not valid_ips:
+        return {}
+
     if not ensure_traffic_table():
         return {}
 
-    for ip in ips:
-        add_device_counters(ip)
+    traffic = {}
+
+    for ip in valid_ips:
+        if add_device_counters(ip):
+            traffic[ip] = get_device_traffic(ip)
+
+    return {
+        ip: data
+        for ip, data in traffic.items()
+        if data is not None
+    }
+
+
+def remove_device_counters(ip):
+    """
+    Remove upload/download rules and counter objects for a device.
+
+    This is useful for cleaning up devices that are no longer
+    being tracked.
+    """
+    if not valid_ipv4(ip):
+        return False
 
     rules = get_traffic_rules()
 
-    traffic = {}
+    if not rules:
+        return False
 
-    for ip in ips:
-        if not valid_ipv4(ip):
+    upload_name = counter_name(ip, "upload")
+    download_name = counter_name(ip, "download")
+
+    success = True
+
+    # Remove rules first.
+    for name in (upload_name, download_name):
+        handle = find_counter_handle(rules, name)
+
+        if handle is None:
             continue
 
-        upload = parse_counter(
-            rules,
-            counter_name(ip, "upload"),
-        )
+        try:
+            result = subprocess.run(
+                [
+                    "nft",
+                    "delete",
+                    "rule",
+                    "inet",
+                    TRAFFIC_TABLE,
+                    TRAFFIC_CHAIN,
+                    "handle",
+                    str(handle),
+                ],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
 
-        download = parse_counter(
-            rules,
-            counter_name(ip, "download"),
-        )
+            if result.returncode != 0:
+                success = False
 
-        if upload is None or download is None:
+        except OSError:
+            success = False
+
+    # Remove the named counter objects.
+    for name in (upload_name, download_name):
+        if not counter_object_exists(name):
             continue
 
-        traffic[ip] = {
-            "download_bytes": download["bytes"],
-            "upload_bytes": upload["bytes"],
-            "download_packets": download["packets"],
-            "upload_packets": upload["packets"],
-        }
+        try:
+            result = subprocess.run(
+                [
+                    "nft",
+                    "delete",
+                    "counter",
+                    "inet",
+                    TRAFFIC_TABLE,
+                    name,
+                ],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
 
-    return traffic
+            if result.returncode != 0:
+                success = False
+
+        except OSError:
+            success = False
+
+    return success
 
 
 def reset_device_counters(ip):
     """
-    Reset a device's counters to zero.
+    Reset a device's traffic counters.
 
-    This deletes and recreates the device's accounting rules.
+    The device's rules and counter objects are removed and
+    recreated with zeroed counters.
     """
     if not valid_ipv4(ip):
         return False
