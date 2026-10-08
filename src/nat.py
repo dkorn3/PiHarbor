@@ -1,9 +1,9 @@
 
 """
-PiServer NAT management.
+PiHarbor NAT management.
 
 Provides IPv4 masquerading for traffic leaving the
-PiServer LAN through the WAN interface.
+PiHarbor LAN through the WAN interface.
 """
 
 import subprocess
@@ -34,7 +34,7 @@ def _run(command):
 
 def _get_network_settings():
     """
-    Load WAN/LAN settings from PiServer configuration.
+    Load WAN/LAN settings from PiHarbor configuration.
     """
 
     config = load_config()
@@ -53,7 +53,7 @@ def _get_network_settings():
 
 def configure_nat():
     """
-    Configure IPv4 masquerading for PiServer LAN traffic.
+    Configure IPv4 masquerading for PiHarbor LAN traffic.
 
     LAN traffic from the configured subnet is masqueraded
     when leaving through the WAN interface.
@@ -77,7 +77,7 @@ def configure_nat():
             "add",
             "table",
             "ip",
-            "piserver_nat",
+            "piharbor_nat",
         ]
     )
 
@@ -98,7 +98,7 @@ def configure_nat():
             "add",
             "chain",
             "ip",
-            "piserver_nat",
+            "piharbor_nat",
             "postrouting",
             "{",
             "type",
@@ -132,7 +132,7 @@ def configure_nat():
             "list",
             "chain",
             "ip",
-            "piserver_nat",
+            "piharbor_nat",
             "postrouting",
         ]
     )
@@ -150,7 +150,7 @@ def configure_nat():
                 "add",
                 "rule",
                 "ip",
-                "piserver_nat",
+                "piharbor_nat",
                 "postrouting",
                 "oifname",
                 wan_interface,
@@ -176,7 +176,7 @@ def configure_nat():
 
 def get_nat_status():
     """
-    Return the current PiServer NAT configuration.
+    Return the current PiHarbor NAT configuration.
     """
 
     result = _run(
@@ -185,7 +185,7 @@ def get_nat_status():
             "list",
             "table",
             "ip",
-            "piserver_nat",
+            "piharbor_nat",
         ]
     )
 
@@ -206,10 +206,10 @@ def get_nat_status():
 
 def disable_nat():
     """
-    Remove the PiServer NAT table.
+    Remove the PiHarbor NAT table.
 
     Deleting the table removes the NAT chain and all
-    masquerade rules belonging to PiServer.
+    masquerade rules belonging to PiHarbor.
     """
 
     result = _run(
@@ -218,7 +218,7 @@ def disable_nat():
             "delete",
             "table",
             "ip",
-            "piserver_nat",
+            "piharbor_nat",
         ]
     )
 
@@ -244,7 +244,7 @@ def disable_nat():
 
 if __name__ == "__main__":
 
-    print("PiServer NAT status:")
+    print("PiHarbor NAT status:")
 
     status = get_nat_status()
 

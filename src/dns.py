@@ -100,7 +100,7 @@ def _write_upstream_config():
     os.makedirs(os.path.dirname(DNSMASQ_DNS_CONFIG), exist_ok=True)
 
     lines = [
-        "# PiServer DNS configuration",
+        "# PiHarbor DNS configuration",
         "no-resolv",
     ]
 

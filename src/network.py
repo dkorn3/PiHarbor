@@ -5,7 +5,7 @@ import subprocess
 
 
 # ============================================================
-# PiServer Network Configuration
+# PiHarbor Network Configuration
 # ============================================================
 
 WAN_INTERFACE = "eth0"
@@ -237,13 +237,13 @@ def configure_lan(interface, address=LAN_ADDRESS):
 
 def configure_router():
     """
-    Configure PiServer as a basic IPv4 router.
+    Configure PiHarbor as a basic IPv4 router.
 
     WAN:
         eth0 → upstream router / Internet
 
     LAN:
-        wlan0 → PiServer Wi-Fi clients
+        wlan0 → PiHarbor Wi-Fi clients
 
     This function:
     - verifies both interfaces exist
@@ -252,7 +252,7 @@ def configure_router():
     - enables IPv4 forwarding
 
     NAT, DHCP, DNS, and firewall rules are handled
-    by their respective PiServer modules.
+    by their respective PiHarbor modules.
     """
 
     if WAN_INTERFACE not in get_interfaces():
@@ -324,7 +324,7 @@ def get_network_status():
 # ============================================================
 
 if __name__ == "__main__":
-    print("=== PISERVER NETWORK CONFIGURATION ===")
+    print("=== PIHARBOR NETWORK CONFIGURATION ===")
     print(f"WAN interface: {WAN_INTERFACE}")
     print(f"LAN interface: {LAN_INTERFACE}")
     print(f"LAN address:   {LAN_ADDRESS}")

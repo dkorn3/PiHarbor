@@ -1,6 +1,6 @@
-git clone https://github.com/dkorn3/PiServer.git
+git clone https://github.com/dkorn3/PiHarbor.git
 
-cd PiServer
+cd PiHarbor
 
 sudo chmod +x scripts/setup.sh
 

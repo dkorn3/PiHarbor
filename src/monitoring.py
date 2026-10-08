@@ -599,12 +599,12 @@ def get_service_status(service):
 
 def get_gateway_services_status():
     """
-    Return PiServer service states.
+    Return PiHarbor service states.
     """
 
     services = {
         "pi_gateway": "pi-gateway.service",
-        "piserver_lan": "piserver-lan.service",
+        "piharbor_lan": "piharbor-lan.service",
         "hostapd": "hostapd.service",
         "dnsmasq": "dnsmasq.service",
         "nftables": "nftables.service",
@@ -627,7 +627,7 @@ def get_gateway_services_status():
 
 def get_nat_status():
     """
-    Return the current PiServer NAT state.
+    Return the current PiHarbor NAT state.
     """
 
     try:
@@ -883,7 +883,7 @@ def get_dashboard_metrics(
 ):
     """
     Return the information required by
-    the PiServer dashboard.
+    the PiHarbor dashboard.
     """
 
     wan = get_interface_health(
@@ -948,7 +948,7 @@ def get_dashboard_metrics(
 def get_gateway_health():
     """
     Return a combined health snapshot of
-    the PiServer gateway.
+    the PiHarbor gateway.
 
     This preserves the original interface
     used by the existing GUI.
@@ -1023,7 +1023,7 @@ if __name__ == "__main__":
     )
 
     print(
-        "PiServer Monitoring"
+        "PiHarbor Monitoring"
     )
 
     print(
@@ -1100,6 +1100,6 @@ if __name__ == "__main__":
     print()
 
     print(
-        "PiServer monitoring test complete."
+        "PiHarbor monitoring test complete."
     )
 

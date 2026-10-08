@@ -1,5 +1,5 @@
 [Unit]
-Description=Configure PiServer LAN interface
+Description=Configure PiHarbor LAN interface
 After=hostapd.service
 Wants=hostapd.service
 

@@ -20,7 +20,7 @@ def _run(command):
 
 
 def _get_dhcp_settings():
-    """Load DHCP settings from the PiServer configuration."""
+    """Load DHCP settings from the PiHarbor configuration."""
     config = load_config()
     dhcp = config["dhcp"]
 
@@ -162,8 +162,8 @@ def get_dhcp_health():
 
 
 def _write_dnsmasq_config(config):
-    """Write the PiServer DHCP configuration for dnsmasq."""
-    content = f"""# PiServer DHCP configuration
+    """Write the PiHarbor DHCP configuration for dnsmasq."""
+    content = f"""# PiHarbor DHCP configuration
 interface={config["interface"]}
 bind-interfaces
 dhcp-authoritative
@@ -185,7 +185,7 @@ dhcp-option=6,{config["address"]}
 
 def configure_dhcp(config=None):
     """
-    Generate and apply the PiServer DHCP configuration.
+    Generate and apply the PiHarbor DHCP configuration.
 
     The supplied configuration overrides values loaded
     from config.py.
@@ -210,7 +210,7 @@ def configure_dhcp(config=None):
 
 
 def disable_dhcp():
-    """Stop dnsmasq and remove the PiServer DHCP configuration."""
+    """Stop dnsmasq and remove the PiHarbor DHCP configuration."""
     result = _run(
         ["systemctl", "stop", "dnsmasq"]
     )
@@ -222,7 +222,7 @@ def disable_dhcp():
 
 
 if __name__ == "__main__":
-    print("=== PiServer DHCP ===")
+    print("=== PiHarbor DHCP ===")
 
     try:
         print(

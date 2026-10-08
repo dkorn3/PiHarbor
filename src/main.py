@@ -1,9 +1,9 @@
 
 
 """
-PiServer main coordinator.
+PiHarbor main coordinator.
 
-This file is the main entry point for PiServer.
+This file is the main entry point for PiHarbor.
 
 Responsibilities:
     1. Load and validate configuration
@@ -14,7 +14,7 @@ Responsibilities:
     6. Configure DHCP when enabled
     7. Configure DNS
     8. Start VPN when enabled
-    9. Start the PiServer web GUI
+    9. Start the PiHarbor web GUI
    10. Shut down services cleanly
 """
 
@@ -48,7 +48,7 @@ _gateway_config = None
 
 def load_gateway_config():
     """
-    Load and validate the PiServer configuration.
+    Load and validate the PiHarbor configuration.
     """
 
     global _gateway_config
@@ -68,7 +68,7 @@ def load_gateway_config():
 
 def initialize_network():
     """
-    Initialize the PiServer network
+    Initialize the PiHarbor network
  configuration.
 
     The network module owns the actual interface configuration.
@@ -130,7 +130,7 @@ def initialize_nat():
 
 def initialize_firewall():
     """
-    Configure the PiServer firewall.
+    Configure the PiHarbor firewall.
     """
 
     enabled = _gateway_config[
@@ -181,7 +181,7 @@ def initialize_firewall():
 
 def initialize_dhcp():
     """
-    Configure DHCP for the PiServer LAN.
+    Configure DHCP for the PiHarbor LAN.
     """
 
     enabled = _gateway_config[
@@ -238,7 +238,7 @@ def initialize_dhcp():
 
 def initialize_dns():
     """
-    Configure PiServer DNS upstream servers.
+    Configure PiHarbor DNS upstream servers.
     """
 
     dns_config = _gateway_config[
@@ -304,7 +304,7 @@ def initialize_vpn():
 
 def initialize_gateway():
     """
-    Initialize all PiServer gateway components.
+    Initialize all PiHarbor gateway components.
     """
 
     global _running
@@ -316,7 +316,7 @@ def initialize_gateway():
     )
 
     app_logging.log_info(
-        "PiServer gateway initialization"
+        "PiHarbor gateway initialization"
     )
 
     app_logging.log_info(
@@ -335,7 +335,7 @@ def initialize_gateway():
     _running = True
 
     app_logging.log_info(
-        "PiServer gateway initialization completed."
+        "PiHarbor gateway initialization completed."
     )
 
     return True
@@ -347,7 +347,7 @@ def initialize_gateway():
 
 def get_gateway_status():
     """
-    Return the current PiServer gateway status.
+    Return the current PiHarbor gateway status.
     """
 
     return {
@@ -370,7 +370,7 @@ def shutdown_gateway():
     global _running
 
     app_logging.log_info(
-        "PiServer gateway shutdown started."
+        "PiHarbor gateway shutdown started."
     )
 
     if vpn is not None:
@@ -391,7 +391,7 @@ def shutdown_gateway():
     _running = False
 
     app_logging.log_info(
-        "PiServer gateway shutdown completed."
+        "PiHarbor gateway shutdown completed."
     )
 
     return True
@@ -403,7 +403,7 @@ def shutdown_gateway():
 
 def start_gui():
     """
-    Start the PiServer web GUI.
+    Start the PiHarbor web GUI.
 
     The GUI is intentionally started by main.py
     so main.py remains the application entry point.
@@ -412,11 +412,11 @@ def start_gui():
     if app is None:
 
         raise RuntimeError(
-            "PiServer GUI could not be imported."
+            "PiHarbor GUI could not be imported."
         )
 
     app_logging.log_info(
-        "Starting PiServer web GUI."
+        "Starting PiHarbor web GUI."
     )
 
     app.run(
@@ -433,7 +433,7 @@ def start_gui():
 
 def main():
     """
-    Main PiServer application entry point.
+    Main PiHarbor application entry point.
     """
 
     try:
@@ -441,11 +441,11 @@ def main():
         initialize_gateway()
 
         print(
-            "PiServer gateway initialized."
+            "PiHarbor gateway initialized."
         )
 
         print(
-            "PiServer GUI available on port 80."
+            "PiHarbor GUI available on port 80."
         )
 
         start_gui()
@@ -453,13 +453,13 @@ def main():
     except KeyboardInterrupt:
 
         print(
-            "\nPiServer shutting down..."
+            "\nPiHarbor shutting down..."
         )
 
     except Exception as exc:
 
         app_logging.log_info(
-            f"PiServer startup failed: {exc}"
+            f"PiHarbor startup failed: {exc}"
         )
 
         raise

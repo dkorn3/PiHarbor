@@ -1,12 +1,12 @@
 
 """
-PiServer ad blocking.
+PiHarbor ad blocking.
 
 Downloads and manages the HaGeZi Multi PRO DNS blocklist
 for dnsmasq.
 
 Also manages a separate custom blocklist that can be
-controlled from the PiServer GUI.
+controlled from the PiHarbor GUI.
 
 The downloaded HaGeZi blocklist and custom blocklist
 are kept separate.
@@ -219,7 +219,7 @@ def download_blocklist(
             BLOCKLIST_URL,
             headers={
                 "User-Agent":
-                    "PiServer-AdBlock/1.0"
+                    "PiHarbor-AdBlock/1.0"
             },
         )
 
@@ -931,11 +931,11 @@ def _write_custom_domains(domains):
         ) as file:
 
             file.write(
-                "# PiServer custom blocklist\n"
+                "# PiHarbor custom blocklist\n"
             )
 
             file.write(
-                "# Managed through the PiServer GUI\n\n"
+                "# Managed through the PiHarbor GUI\n\n"
             )
 
             for domain in domains:

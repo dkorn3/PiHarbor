@@ -1,5 +1,5 @@
 """
-PiServer Network Topology Tree
+PiHarbor Network Topology Tree
 
 Builds a simple, JSON-serializable representation of the gateway's
 current network topology.  network_gui.py can call get_topology()
@@ -332,7 +332,7 @@ def get_topology():
 
     pi_node = {
         "type": "gateway",
-        "label": "PiServer",
+        "label": "PiHarbor",
         "details": "Network Gateway",
         "status": "Online",
         "children": [

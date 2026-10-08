@@ -2,7 +2,7 @@
 set -e
 
 echo "================================="
-echo "       PiServer Setup"
+echo "       PiHarbor Setup"
 echo "================================="
 echo
 
@@ -23,7 +23,7 @@ fi
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 
-echo "PiServer repository:"
+echo "PiHarbor repository:"
 echo "  $REPO_DIR"
 echo
 
@@ -35,7 +35,7 @@ read -rp "Installation path [$REPO_DIR]: " INSTALL_DIR
 INSTALL_DIR="${INSTALL_DIR:-$REPO_DIR}"
 
 echo
-echo "Installing PiServer to:"
+echo "Installing PiHarbor to:"
 echo "  $INSTALL_DIR"
 echo
 
@@ -47,24 +47,24 @@ if [ "$INSTALL_DIR" != "$REPO_DIR" ]; then
 
     mkdir -p "$INSTALL_DIR"
 
-    echo "Copying PiServer files..."
+    echo "Copying PiHarbor files..."
 
     cp -a "$REPO_DIR"/. "$INSTALL_DIR"/
 
 fi
 
 # ============================================================
-# Verify required PiServer files
+# Verify required PiHarbor files
 # ============================================================
 
 echo
-echo "Checking PiServer files..."
+echo "Checking PiHarbor files..."
 
 REQUIRED_FILES=(
     "requirements.txt"
     "configs/hostapd.conf.example"
     "configs/dnsmasq.conf.example"
-    "configs/99-piserver-router.conf"
+    "configs/99-piharbor-router.conf"
     "src/main.py"
 )
 
@@ -78,7 +78,7 @@ for FILE in "${REQUIRED_FILES[@]}"; do
 
 done
 
-echo "PiServer files OK."
+echo "PiHarbor files OK."
 
 # ============================================================
 # Install system packages
@@ -133,11 +133,11 @@ python3 -c "import flask; print('Flask:', flask.__version__)"
 echo "Flask OK."
 
 # ============================================================
-# Verify PiServer Python modules
+# Verify PiHarbor Python modules
 # ============================================================
 
 echo
-echo "Checking PiServer Python modules..."
+echo "Checking PiHarbor Python modules..."
 
 cd "$INSTALL_DIR/src"
 
@@ -155,7 +155,7 @@ import vpn
 import adblock
 "
 
-echo "PiServer Python modules OK."
+echo "PiHarbor Python modules OK."
 
 cd "$INSTALL_DIR"
 
@@ -168,7 +168,7 @@ echo "Configuring NetworkManager..."
 
 mkdir -p /etc/NetworkManager/conf.d
 
-cat > /etc/NetworkManager/conf.d/piserver.conf <<EOF
+cat > /etc/NetworkManager/conf.d/piharbor.conf <<EOF
 [keyfile]
 unmanaged-devices=interface-name:wlan0
 EOF
@@ -195,7 +195,7 @@ systemctl disable --now wpa_supplicant@wlan0.service 2>/dev/null || true
 echo
 echo "Configuring hostapd..."
 
-read -rsp "Enter PiServer Wi-Fi password: " WIFI_PASSWORD
+read -rsp "Enter PiHarbor Wi-Fi password: " WIFI_PASSWORD
 echo
 
 if [ -z "$WIFI_PASSWORD" ]; then
@@ -250,8 +250,8 @@ echo
 echo "Configuring IPv4 forwarding..."
 
 cp \
-    "$INSTALL_DIR/configs/99-piserver-router.conf" \
-    /etc/sysctl.d/99-piserver-router.conf
+    "$INSTALL_DIR/configs/99-piharbor-router.conf" \
+    /etc/sysctl.d/99-piharbor-router.conf
 
 sysctl --system
 
@@ -263,15 +263,15 @@ fi
 echo "IPv4 forwarding enabled."
 
 # ============================================================
-# Configure PiServer LAN service
+# Configure PiHarbor LAN service
 # ============================================================
 
 echo
-echo "Installing PiServer LAN service..."
+echo "Installing PiHarbor LAN service..."
 
-cat > /etc/systemd/system/piserver-lan.service <<EOF
+cat > /etc/systemd/system/piharbor-lan.service <<EOF
 [Unit]
-Description=Configure PiServer LAN interface
+Description=Configure PiHarbor LAN interface
 After=hostapd.service
 Wants=hostapd.service
 
@@ -286,16 +286,16 @@ WantedBy=multi-user.target
 EOF
 
 # ============================================================
-# Configure PiServer GUI service
+# Configure PiHarbor GUI service
 # ============================================================
 
 echo
-echo "Installing PiServer GUI service..."
+echo "Installing PiHarbor GUI service..."
 
 cat > /etc/systemd/system/pi-gateway.service <<EOF
 [Unit]
 Description=Raspberry Pi Network Gateway GUI
-After=network-online.target piserver-lan.service
+After=network-online.target piharbor-lan.service
 Wants=network-online.target
 
 [Service]
@@ -330,7 +330,7 @@ systemctl unmask hostapd 2>/dev/null || true
 
 systemctl enable hostapd
 systemctl enable dnsmasq
-systemctl enable piserver-lan.service
+systemctl enable piharbor-lan.service
 systemctl enable pi-gateway.service
 
 # ============================================================
@@ -340,7 +340,7 @@ systemctl enable pi-gateway.service
 echo
 echo "Starting services..."
 
-systemctl restart piserver-lan.service
+systemctl restart piharbor-lan.service
 systemctl restart hostapd
 systemctl restart dnsmasq
 systemctl restart pi-gateway.service
@@ -355,7 +355,7 @@ echo "Checking services..."
 SERVICES=(
     "hostapd"
     "dnsmasq"
-    "piserver-lan.service"
+    "piharbor-lan.service"
     "pi-gateway.service"
 )
 
@@ -393,24 +393,24 @@ fi
 echo "wlan0 OK."
 
 # ============================================================
-# Verify PiServer GUI
+# Verify PiHarbor GUI
 # ============================================================
 
 echo
-echo "Checking PiServer GUI..."
+echo "Checking PiHarbor GUI..."
 
 if ! curl -fsS http://127.0.0.1/ >/dev/null; then
 
-    echo "ERROR: PiServer GUI is not responding."
+    echo "ERROR: PiHarbor GUI is not responding."
     echo
-    echo "PiServer logs:"
+    echo "PiHarbor logs:"
     journalctl -u pi-gateway.service -n 30 --no-pager
 
     exit 1
 
 fi
 
-echo "PiServer GUI is responding."
+echo "PiHarbor GUI is responding."
 
 # ============================================================
 # Final status
@@ -445,15 +445,15 @@ echo
 echo "Services:"
 echo "hostapd:          $(systemctl is-active hostapd)"
 echo "dnsmasq:          $(systemctl is-active dnsmasq)"
-echo "piserver-lan:     $(systemctl is-active piserver-lan.service)"
+echo "piharbor-lan:     $(systemctl is-active piharbor-lan.service)"
 echo "pi-gateway:       $(systemctl is-active pi-gateway.service)"
 
 echo
-echo "PiServer GUI:"
+echo "PiHarbor GUI:"
 echo "  http://192.168.50.1"
 
 echo
-echo "PiServer setup completed successfully."
+echo "PiHarbor setup completed successfully."
 
 echo
 echo "A reboot is recommended to fully apply the"

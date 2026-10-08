@@ -2,7 +2,7 @@ country_code=US
 interface=wlan0
 driver=nl80211
 
-ssid=PiServer
+ssid=PiHarbor
 hw_mode=g
 channel=6
 
