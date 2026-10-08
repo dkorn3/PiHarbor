@@ -1162,6 +1162,7 @@ body {
 
     <div class="nav">
         <a href="/" class="active">Dashboard</a>
+        <a href="/health">Device Health</a>
         <a href="/network">Network</a>
         <a href="/dns">DNS</a>
     </div>
@@ -1210,38 +1211,7 @@ body {
 
     </div>
 
-    <!-- SYSTEM METRICS -->
-    <div class="grid">
-
-        <div class="card">
-            <h3>CPU Usage</h3>
-            <div class="metric" id="cpu">--</div>
-            <div class="progress"><div id="cpu-bar"></div></div>
-            <div class="sub">Processor utilization</div>
-        </div>
-
-        <div class="card">
-            <h3>Memory</h3>
-            <div class="metric" id="memory">--</div>
-            <div class="progress"><div id="memory-bar"></div></div>
-            <div class="sub">RAM utilization</div>
-        </div>
-
-        <div class="card">
-            <h3>Temperature</h3>
-            <div class="metric" id="temperature">--</div>
-            <div class="sub">CPU temperature</div>
-        </div>
-
-        <div class="card">
-            <h3>Storage</h3>
-            <div class="metric" id="storage">--</div>
-            <div class="progress"><div id="storage-bar"></div></div>
-            <div class="sub">Root filesystem usage</div>
-        </div>
-
-    </div>
-
+   
     <!-- WAN / LAN -->
     <div class="grid">
 
@@ -1439,36 +1409,6 @@ async function refreshDashboard() {
         }
 
         const data = await response.json();
-
-        const system = data.system || {};
-
-        const cpu = system.cpu_usage;
-        const memory = system.memory_usage;
-        const storage = system.storage_usage;
-
-        document.getElementById("cpu").textContent =
-            cpu !== null && cpu !== undefined ? cpu + "%" : "N/A";
-
-        document.getElementById("memory").textContent =
-            memory !== null && memory !== undefined ? memory + "%" : "N/A";
-
-        document.getElementById("temperature").textContent =
-            system.temperature !== null &&
-            system.temperature !== undefined
-                ? system.temperature + "°C"
-                : "N/A";
-
-        document.getElementById("storage").textContent =
-            storage !== null && storage !== undefined
-                ? storage + "%"
-                : "N/A";
-
-        document.getElementById("uptime").textContent =
-            system.uptime_text || "Unknown";
-
-        setProgress("cpu-bar", cpu);
-        setProgress("memory-bar", memory);
-        setProgress("storage-bar", storage);
 
         const network = data.network || {};
         const wan = network.wan || {};
@@ -1790,6 +1730,398 @@ def dashboard_api():
                 "error": str(exc)
             }
         ), 500
+# ============================================================
+# Device Health
+# ============================================================
+
+@app.route("/health")
+def device_health_page():
+
+    return render_template_string(
+        """
+        <!DOCTYPE html>
+        <html>
+
+        <head>
+
+        <meta charset="UTF-8">
+
+        <meta
+            name="viewport"
+            content="width=device-width, initial-scale=1.0"
+        >
+
+        <title>Device Health - PiServer</title>
+
+        <style>
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            background: #0b0e12;
+            color: #f3f4f6;
+            font-family:
+                -apple-system,
+                BlinkMacSystemFont,
+                "Segoe UI",
+                sans-serif;
+        }
+
+        .sidebar {
+            position: fixed;
+            left: 0;
+            top: 0;
+            bottom: 0;
+            width: 220px;
+            background: #12161c;
+            border-right: 1px solid #252b34;
+            padding: 24px 16px;
+        }
+
+        .logo {
+            font-size: 24px;
+            font-weight: 700;
+            margin-bottom: 30px;
+        }
+
+        .logo span {
+            display: block;
+            margin-top: 4px;
+            color: #7f8793;
+            font-size: 13px;
+        }
+
+        .nav a {
+            display: block;
+            padding: 11px 13px;
+            margin-bottom: 5px;
+            border-radius: 8px;
+            color: #aeb5bf;
+            text-decoration: none;
+        }
+
+        .nav a:hover,
+        .nav a.active {
+            background: #222831;
+            color: #fff;
+        }
+
+        .main {
+            margin-left: 220px;
+            padding: 30px;
+            max-width: 1500px;
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 24px;
+        }
+
+        .header h1 {
+            margin: 0;
+            font-size: 28px;
+        }
+
+        .header-sub {
+            color: #7f8793;
+            font-size: 13px;
+            margin-top: 5px;
+        }
+
+        .card {
+            background: #12161c;
+            border: 1px solid #252b34;
+            border-radius: 12px;
+            padding: 18px;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns:
+                repeat(4, minmax(180px, 1fr));
+            gap: 14px;
+        }
+
+        .card h3 {
+            margin: 0 0 8px;
+            color: #8f98a5;
+            font-size: 13px;
+            font-weight: 500;
+        }
+
+        .metric {
+            font-size: 27px;
+            font-weight: 700;
+            letter-spacing: -0.4px;
+        }
+
+        .sub {
+            color: #737c89;
+            font-size: 12px;
+            margin-top: 5px;
+        }
+
+        .progress {
+            height: 5px;
+            background: #252b34;
+            border-radius: 99px;
+            overflow: hidden;
+            margin-top: 12px;
+        }
+
+        .progress > div {
+            height: 100%;
+            width: 0;
+            background: #7aa2f7;
+            transition: width .25s ease;
+        }
+
+        .health-status {
+            margin-top: 14px;
+            padding: 14px 16px;
+            background: #151a21;
+            border: 1px solid #252b34;
+            border-radius: 10px;
+            color: #8f98a5;
+            font-size: 13px;
+        }
+
+        @media (max-width: 1050px) {
+            .grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+
+        @media (max-width: 800px) {
+            .sidebar {
+                position: static;
+                width: 100%;
+                height: auto;
+            }
+
+            .main {
+                margin-left: 0;
+                padding: 16px;
+            }
+
+            .grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        </style>
+
+        </head>
+
+        <body>
+
+        <div class="sidebar">
+
+            <div class="logo">
+                PiServer
+                <span>Network Gateway</span>
+            </div>
+
+            <div class="nav">
+                <a href="/">Dashboard</a>
+                <a href="/health" class="active">Device Health</a>
+                <a href="/network">Network</a>
+                <a href="/dns">DNS</a>
+            </div>
+
+        </div>
+
+        <div class="main">
+
+            <div class="header">
+                <div>
+                    <h1>Device Health</h1>
+                    <div class="header-sub">
+                        Raspberry Pi system health and resources
+                    </div>
+                </div>
+            </div>
+
+            <div class="grid">
+
+                <div class="card">
+                    <h3>CPU Usage</h3>
+                    <div class="metric" id="cpu">--</div>
+                    <div class="progress">
+                        <div id="cpu-bar"></div>
+                    </div>
+                    <div class="sub">
+                        Processor utilization
+                    </div>
+                </div>
+
+                <div class="card">
+                    <h3>Memory</h3>
+                    <div class="metric" id="memory">--</div>
+                    <div class="progress">
+                        <div id="memory-bar"></div>
+                    </div>
+                    <div class="sub">
+                        RAM utilization
+                    </div>
+                </div>
+
+                <div class="card">
+                    <h3>Temperature</h3>
+                    <div class="metric" id="temperature">--</div>
+                    <div class="sub">
+                        CPU temperature
+                    </div>
+                </div>
+
+                <div class="card">
+                    <h3>Storage</h3>
+                    <div class="metric" id="storage">--</div>
+                    <div class="progress">
+                        <div id="storage-bar"></div>
+                    </div>
+                    <div class="sub">
+                        Root filesystem usage
+                    </div>
+                </div>
+
+            </div>
+
+            <div class="health-status">
+                Uptime:
+                <strong id="uptime">--</strong>
+                <span style="margin-left:20px;">
+                    Last updated:
+                    <strong id="updated">--</strong>
+                </span>
+            </div>
+
+        </div>
+
+        <script>
+
+        function setProgress(id, value) {
+
+            const bar = document.getElementById(id);
+
+            if (!bar) {
+                return;
+            }
+
+            const numeric = Number(value);
+
+            if (!Number.isFinite(numeric)) {
+                bar.style.width = "0%";
+                return;
+            }
+
+            bar.style.width =
+                Math.max(0, Math.min(100, numeric)) + "%";
+        }
+
+
+        async function refreshHealth() {
+
+            try {
+
+                const response =
+                    await fetch("/api/dashboard", {
+                        cache: "no-store"
+                    });
+
+                if (!response.ok) {
+                    throw new Error(
+                        "Health request failed"
+                    );
+                }
+
+                const data =
+                    await response.json();
+
+                const system =
+                    data.system || {};
+
+                const cpu =
+                    system.cpu_usage;
+
+                const memory =
+                    system.memory_usage;
+
+                const storage =
+                    system.storage_usage;
+
+
+                document.getElementById("cpu").textContent =
+                    cpu !== null &&
+                    cpu !== undefined
+                        ? cpu + "%"
+                        : "N/A";
+
+
+                document.getElementById("memory").textContent =
+                    memory !== null &&
+                    memory !== undefined
+                        ? memory + "%"
+                        : "N/A";
+
+
+                document.getElementById("temperature").textContent =
+                    system.temperature !== null &&
+                    system.temperature !== undefined
+                        ? system.temperature + "°C"
+                        : "N/A";
+
+
+                document.getElementById("storage").textContent =
+                    storage !== null &&
+                    storage !== undefined
+                        ? storage + "%"
+                        : "N/A";
+
+
+                document.getElementById("uptime").textContent =
+                    system.uptime_text || "Unknown";
+
+
+                document.getElementById("updated").textContent =
+                    new Date().toLocaleTimeString();
+
+
+                setProgress("cpu-bar", cpu);
+                setProgress("memory-bar", memory);
+                setProgress("storage-bar", storage);
+
+            } catch (error) {
+
+                console.error(
+                    "Device health refresh failed:",
+                    error
+                );
+
+            }
+
+        }
+
+
+        refreshHealth();
+
+        setInterval(
+            refreshHealth,
+            3000
+        );
+
+        </script>
+
+        </body>
+
+        </html>
+        """
+    )
 
 
 @app.route("/device/<ip>")
