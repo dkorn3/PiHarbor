@@ -3279,6 +3279,7 @@ def dashboard_api():
 # Network Topology
 # ============================================================
 
+
 @app.route("/topology")
 def topology_page():
 
@@ -3290,308 +3291,498 @@ def topology_page():
         <html>
 
         <head>
+            <meta charset="UTF-8">
+            <meta
+                name="viewport"
+                content="width=device-width, initial-scale=1.0"
+            >
+            <title>Network Topology - PiHarbor</title>
 
-        <meta charset="UTF-8">
+            <style>
+                * {
+                    box-sizing: border-box;
+                }
 
-        <meta
-            name="viewport"
-            content="width=device-width, initial-scale=1.0"
-        >
+                body {
+                    margin: 0;
+                    padding: 28px;
+                    background: #0b0e12;
+                    color: #f3f4f6;
+                    font-family:
+                        -apple-system,
+                        BlinkMacSystemFont,
+                        "Segoe UI",
+                        sans-serif;
+                }
 
-        <title>Network Topology - PiHarbor</title>
+                .page {
+                    max-width: 1600px;
+                    margin: auto;
+                }
 
-        <style>
+                .back {
+                    display: inline-block;
+                    margin-bottom: 22px;
+                    color: #aeb5bf;
+                    text-decoration: none;
+                    font-size: 13px;
+                }
 
-        * {
-            box-sizing: border-box;
-        }
+                .back:hover {
+                    color: white;
+                }
 
-        body {
-            margin: 0;
-            background: #0b0e12;
-            color: #f3f4f6;
-            font-family:
-                -apple-system,
-                BlinkMacSystemFont,
-                "Segoe UI",
-                sans-serif;
-            padding: 30px;
-        }
+                .header {
+                    margin-bottom: 24px;
+                }
 
-        .page {
-            max-width: 1200px;
-            margin: auto;
-        }
+                .header h1 {
+                    margin: 0;
+                    font-size: 28px;
+                    letter-spacing: -0.5px;
+                }
 
-        .header {
-            margin-bottom: 24px;
-        }
+                .header-sub {
+                    margin-top: 7px;
+                    color: #7f8793;
+                    font-size: 13px;
+                }
 
-        .header h1 {
-            margin: 0;
-            font-size: 28px;
-        }
+                .summary {
+                    display: flex;
+                    flex-wrap: wrap;
+                    gap: 10px;
+                    margin-bottom: 22px;
+                }
 
-        .header-sub {
-            color: #7f8793;
-            font-size: 13px;
-            margin-top: 5px;
-        }
+                .summary-item {
+                    padding: 11px 15px;
+                    background: #12161c;
+                    border: 1px solid #252b34;
+                    border-radius: 11px;
+                    color: #8f98a5;
+                    font-size: 12px;
+                }
 
-        .back {
-            display: inline-block;
-            color: #fff;
-            text-decoration: none;
-            margin-bottom: 20px;
-        }
+                .summary-item strong {
+                    color: #f3f4f6;
+                    margin-left: 4px;
+                }
 
-        .back:hover {
-            text-decoration: underline;
-        }
+                .topology-panel {
+                    background:
+                        radial-gradient(
+                            circle,
+                            rgba(122, 162, 247, 0.07) 1px,
+                            transparent 1px
+                        );
+                    background-size: 24px 24px;
+                    background-color: #10141a;
+                    border: 1px solid #252b34;
+                    border-radius: 16px;
+                    overflow: auto;
+                    min-height: 380px;
+                    padding: 42px 24px 55px;
+                }
 
-        .card {
-            background: #12161c;
-            border: 1px solid #252b34;
-            border-radius: 12px;
-            padding: 22px;
-        }
+                .topology-canvas {
+                    width: max-content;
+                    min-width: 100%;
+                    display: flex;
+                    justify-content: center;
+                }
 
-        .summary {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 12px;
-            margin-bottom: 24px;
-        }
+                /* Each level forms a horizontal tier. */
 
-        .summary-item {
-            background: #171c23;
-            border: 1px solid #252b34;
-            border-radius: 8px;
-            padding: 10px 14px;
-            color: #9da5b1;
-            font-size: 12px;
-        }
+                .tree,
+                .tree ul {
+                    list-style: none;
+                    margin: 0;
+                    padding: 0;
+                }
 
-        .summary-item strong {
-            color: #f3f4f6;
-        }
+                .tree {
+                    display: flex;
+                    justify-content: center;
+                    width: max-content;
+                    min-width: 100%;
+                }
 
-        .tree,
-        .tree ul {
-            list-style: none;
-            margin: 0;
-            padding: 0;
-        }
+                .tree ul {
+                    position: relative;
+                    display: flex;
+                    justify-content: center;
+                    padding-top: 38px;
+                }
 
-        .tree ul {
-            margin-left: 24px;
-            padding-left: 24px;
-            border-left: 1px solid #343b46;
-        }
+                .tree-node {
+                    position: relative;
+                    list-style: none;
+                    display: flex;
+                    flex-direction: column;
+                    align-items: center;
+                    text-align: center;
+                    padding: 38px 13px 0;
+                }
 
-        .tree-node {
-            position: relative;
-            margin: 10px 0;
-        }
+                .tree > .tree-node {
+                    padding-top: 0;
+                }
 
-        .tree-node::before {
-            content: "";
-            position: absolute;
-            left: -24px;
-            top: 27px;
-            width: 24px;
-            border-top: 1px solid #343b46;
-        }
+                /* Lines joining sibling nodes. */
 
-        .tree > .tree-node::before {
-            display: none;
-        }
+                .tree-node::before,
+                .tree-node::after {
+                    content: "";
+                    position: absolute;
+                    top: 0;
+                    right: 50%;
+                    width: 50%;
+                    height: 38px;
+                    border-top: 1px solid #3c4655;
+                }
 
-        .node-card {
-            background: #171c23;
-            border: 1px solid #292f39;
-            border-radius: 10px;
-            padding: 13px 15px;
-        }
+                .tree-node::after {
+                    right: auto;
+                    left: 50%;
+                    border-left: 1px solid #3c4655;
+                }
 
-        .node-title {
-            display: flex;
-            align-items: center;
-            gap: 9px;
-            font-size: 14px;
-            font-weight: 600;
-        }
+                .tree-node:first-child::before {
+                    border-top: 0;
+                }
 
-        .node-details {
-            margin-top: 5px;
-            color: #727b88;
-            font-family: monospace;
-            font-size: 12px;
-        }
+                .tree-node:last-child::after {
+                    border-top: 0;
+                }
 
-        .node-status {
-            margin-left: auto;
-            color: #65d985;
-            font-size: 11px;
-            font-weight: 500;
-        }
+                .tree-node:only-child::before {
+                    display: none;
+                }
 
-        .node-status.offline {
-            color: #d96868;
-        }
+                .tree-node:only-child::after {
+                    border-top: 0;
+                }
 
-        .node-icon {
-            width: 10px;
-            height: 10px;
-            border-radius: 50%;
-            background: #7aa2f7;
-            flex-shrink: 0;
-        }
+                .tree > .tree-node::before,
+                .tree > .tree-node::after {
+                    display: none;
+                }
 
-        .node-icon.offline {
-            background: #d96868;
-        }
+                .tree > .tree-node > ul::before {
+                    display: none;
+                }
 
-        .empty {
-            color: #727b88;
-            font-size: 13px;
-            padding: 10px 0;
-        }
+                /* Vertical connection from parent to child tier. */
 
-        </style>
+                .tree ul::before {
+                    content: "";
+                    position: absolute;
+                    top: 0;
+                    left: 50%;
+                    height: 38px;
+                    border-left: 1px solid #3c4655;
+                }
 
+                /* Device bubbles. */
+
+                .node-bubble {
+                    position: relative;
+                    display: flex;
+                    align-items: center;
+                    gap: 12px;
+                    width: 224px;
+                    min-height: 88px;
+                    padding: 15px;
+                    text-align: left;
+                    background: linear-gradient(
+                        145deg,
+                        #1b222c,
+                        #131820
+                    );
+                    border: 1px solid #343e4d;
+                    border-radius: 16px;
+                    box-shadow:
+                        0 8px 22px rgba(0, 0, 0, 0.22);
+                    transition:
+                        transform 0.2s ease,
+                        border-color 0.2s ease,
+                        box-shadow 0.2s ease;
+                }
+
+                .node-bubble:hover {
+                    transform: translateY(-3px);
+                    border-color: #7aa2f7;
+                    box-shadow:
+                        0 10px 28px rgba(0, 0, 0, 0.35);
+                }
+
+                .node-symbol {
+                    flex: 0 0 42px;
+                    width: 42px;
+                    height: 42px;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    font-size: 21px;
+                    border-radius: 13px;
+                    background: #252f40;
+                    border: 1px solid #37465e;
+                }
+
+                .node-main {
+                    min-width: 0;
+                    flex: 1;
+                }
+
+                .node-label {
+                    color: #f3f4f6;
+                    font-size: 13px;
+                    line-height: 1.4;
+                    font-weight: 650;
+                    overflow-wrap: anywhere;
+                }
+
+                .node-details {
+                    margin-top: 5px;
+                    color: #8e99a9;
+                    font-family: monospace;
+                    font-size: 11px;
+                    line-height: 1.5;
+                    overflow-wrap: anywhere;
+                }
+
+                .node-status {
+                    display: flex;
+                    align-items: center;
+                    gap: 6px;
+                    margin-top: 9px;
+                    color: #65d985;
+                    font-size: 10px;
+                    font-weight: 600;
+                }
+
+                .node-status.status-down {
+                    color: #e77979;
+                }
+
+                .status-dot {
+                    width: 6px;
+                    height: 6px;
+                    background: currentColor;
+                    border-radius: 50%;
+                    box-shadow: 0 0 8px currentColor;
+                }
+
+                .legend {
+                    display: flex;
+                    align-items: center;
+                    flex-wrap: wrap;
+                    gap: 18px;
+                    margin-top: 20px;
+                    color: #858f9d;
+                    font-size: 11px;
+                }
+
+                .legend-item {
+                    display: flex;
+                    align-items: center;
+                    gap: 7px;
+                }
+
+                .legend-line {
+                    width: 20px;
+                    height: 1px;
+                    background: #3c4655;
+                }
+
+                .empty {
+                    margin-top: 20px;
+                    color: #7f8793;
+                    font-size: 13px;
+                }
+
+                @media (max-width: 700px) {
+                    body {
+                        padding: 16px;
+                    }
+
+                    .header h1 {
+                        font-size: 24px;
+                    }
+
+                    .topology-panel {
+                        padding: 32px 15px 40px;
+                    }
+
+                    .topology-canvas {
+                        justify-content: flex-start;
+                    }
+
+                    .node-bubble {
+                        width: 200px;
+                    }
+                }
+
+            </style>
         </head>
 
         <body>
+            <div class="page">
 
-        <div class="page">
+                <a class="back" href="/">
+                    ← Back to Dashboard
+                </a>
 
-            <a class="back" href="/">
-                ← Dashboard
-            </a>
-
-            <div class="header">
-                <h1>Network Topology</h1>
-                <div class="header-sub">
-                    Current gateway and LAN device layout
-                </div>
-            </div>
-
-            <div class="summary">
-
-                <div class="summary-item">
-                    WAN:
-                    <strong>
-                        {{ topology.metadata.wan_interface }}
-                    </strong>
-                    —
-                    <strong>
-                        {{ topology.metadata.wan_ip or "N/A" }}
-                    </strong>
+                <div class="header">
+                    <h1>Network Topology</h1>
+                    <div class="header-sub">
+                        Explore how PiHarbor connects your network.
+                        Each bubble represents a discovered node.
+                    </div>
                 </div>
 
-                <div class="summary-item">
-                    LAN:
-                    <strong>
-                        {{ topology.metadata.lan_interface }}
-                    </strong>
-                    —
-                    <strong>
-                        {{ topology.metadata.lan_ip }}
-                    </strong>
-                </div>
+                <div class="summary">
 
-                <div class="summary-item">
-                    Clients:
-                    <strong>
-                        {{ topology.metadata.client_count }}
-                    </strong>
-                </div>
-
-                {% if topology.metadata.wireguard_present %}
-                <div class="summary-item">
-                    WireGuard:
-                    <strong>
-                        {{ "Active" if topology.metadata.wireguard_active else "Inactive" }}
-                    </strong>
-                </div>
-                {% endif %}
-
-            </div>
-
-            <div class="card">
-
-                {% macro render_node(node, root=false) %}
-
-                <li class="tree-node">
-
-                    <div class="node-card">
-
-                        <div class="node-title">
-
-                            <span
-                                class="node-icon
-                                {% if node.status in ['Offline', 'Inactive'] %}
-                                    offline
-                                {% endif %}"
-                            ></span>
-
-                            <span>
-                                {{ node.label }}
-                            </span>
-
-                            <span
-                                class="node-status
-                                {% if node.status in ['Offline', 'Inactive'] %}
-                                    offline
-                                {% endif %}"
-                            >
-                                {{ node.status }}
-                            </span>
-
-                        </div>
-
-                        {% if node.details %}
-                        <div class="node-details">
-                            {{ node.details }}
-                        </div>
-                        {% endif %}
-
+                    <div class="summary-item">
+                        WAN
+                        <strong>
+                            {{ topology.metadata.wan_interface }}
+                        </strong>
+                        <strong>
+                            {{ topology.metadata.wan_ip or "N/A" }}
+                        </strong>
                     </div>
 
-                    {% if node.children %}
+                    <div class="summary-item">
+                        LAN
+                        <strong>
+                            {{ topology.metadata.lan_interface }}
+                        </strong>
+                        <strong>
+                            {{ topology.metadata.lan_ip or "N/A" }}
+                        </strong>
+                    </div>
 
-                    <ul>
+                    <div class="summary-item">
+                        Connected clients
+                        <strong>
+                            {{ topology.metadata.client_count }}
+                        </strong>
+                    </div>
 
-                        {% for child in node.children %}
-                            {{ render_node(child) }}
-                        {% endfor %}
-
-                    </ul>
-
+                    {% if topology.metadata.wireguard_present %}
+                    <div class="summary-item">
+                        WireGuard
+                        <strong>
+                            {{ "Active" if topology.metadata.wireguard_active else "Inactive" }}
+                        </strong>
+                    </div>
                     {% endif %}
 
-                </li>
+                </div>
 
-                {% endmacro %}
+                <div class="topology-panel">
+                    <div class="topology-canvas">
 
+                        {% macro render_node(node, root=false) %}
 
-                <ul class="tree">
+                            {% set name = (node.label or "")|lower %}
+                            {% set status = node.status or "Unknown" %}
 
-                    {{ render_node(topology, true) }}
+                            <li class="tree-node">
 
-                </ul>
+                                <div class="node-bubble">
+
+                                    <div class="node-symbol">
+                                        {% if "internet" in name %}
+                                            🌐
+                                        {% elif "router" in name %}
+                                            📡
+                                        {% elif "wireguard" in name or "wg0" in name %}
+                                            🔐
+                                        {% elif "wifi" in name or "wi-fi" in name or "wlan" in name %}
+                                            📶
+                                        {% elif "eth" in name or "wan" in name or "lan" in name %}
+                                            🔌
+                                        {% elif "phone" in name or "mobile" in name %}
+                                            📱
+                                        {% elif "laptop" in name or "computer" in name or "pc" in name %}
+                                            💻
+                                        {% elif "pi" in name or "gateway" in name or "piharbor" in name %}
+                                            🛡️
+                                        {% else %}
+                                            🖥️
+                                        {% endif %}
+                                    </div>
+
+                                    <div class="node-main">
+
+                                        <div class="node-label">
+                                            {{ node.label }}
+                                        </div>
+
+                                        {% if node.details %}
+                                        <div class="node-details">
+                                            {{ node.details }}
+                                        </div>
+                                        {% endif %}
+
+                                        <div class="node-status
+                                            {% if status|lower in ['offline', 'inactive', 'down', 'failed'] %}
+                                                status-down
+                                            {% endif %}
+                                        ">
+                                            <span class="status-dot"></span>
+                                            {{ status }}
+                                        </div>
+
+                                    </div>
+
+                                </div>
+
+                                {% if node.children %}
+                                <ul>
+                                    {% for child in node.children %}
+                                        {{ render_node(child) }}
+                                    {% endfor %}
+                                </ul>
+                                {% endif %}
+
+                            </li>
+
+                        {% endmacro %}
+
+                        <ul class="tree">
+                            {{ render_node(topology, true) }}
+                        </ul>
+
+                    </div>
+                </div>
+
+                <div class="legend">
+                    <div class="legend-item">
+                        <span class="legend-line"></span>
+                        Parent / child connection
+                    </div>
+                    <div class="legend-item">
+                        <span class="status-dot" style="color:#65d985"></span>
+                        Active
+                    </div>
+                    <div class="legend-item">
+                        <span class="status-dot" style="color:#e77979"></span>
+                        Offline / inactive
+                    </div>
+                </div>
 
                 {% if topology.metadata.client_count == 0 %}
                 <div class="empty">
                     No LAN clients are currently visible.
+                    Connect a device to the PiHarbor network to see it here.
                 </div>
                 {% endif %}
 
             </div>
-
-        </div>
-
         </body>
         </html>
         """,
