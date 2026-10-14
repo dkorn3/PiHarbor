@@ -281,8 +281,6 @@ def get_topology():
 
     wan_ip = get_interface_ip(wan_interface)
     lan_ip = get_interface_ip(lan_interface) or DEFAULT_LAN_IP
-    wan_state = get_interface_state(wan_interface)
-    lan_state = get_interface_state(lan_interface)
     upstream_gateway = get_default_gateway()
     clients = get_clients(lan_interface)
     wireguard = get_wireguard_status()
@@ -330,28 +328,18 @@ def get_topology():
 
     lan_children.extend(client_nodes)
 
+ 
     pi_node = {
         "type": "gateway",
         "label": "PiHarbor",
-        "details": "Network Gateway",
+        "details": (
+            f"{wan_interface}: {wan_ip or 'No IPv4 address'}"
+            f"  |  {lan_interface}: {lan_ip}/24"
+        ),
         "status": "Online",
-        "children": [
-            {
-                "type": "interface",
-                "label": f"{wan_interface} (WAN)",
-                "details": wan_ip or "No IPv4 address",
-                "status": wan_state.capitalize(),
-                "children": [],
-            },
-            {
-                "type": "interface",
-                "label": f"{lan_interface} (LAN)",
-                "details": f"{lan_ip}/24",
-                "status": lan_state.capitalize(),
-                "children": lan_children,
-            },
-        ],
+        "children": lan_children,
     }
+
 
     return {
         "label": "Internet",
