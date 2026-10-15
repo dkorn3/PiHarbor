@@ -2418,97 +2418,60 @@ body {
     </div>
 
 
-    <!-- LAST 24 HOURS -->
 
-    <div class="chart-grid">
+<!-- NETWORK ACTIVITY -->
 
-        <div class="card">
+<div class="card" style="margin-bottom: 14px;">
 
-            <div class="section-title">
+    <div class="section-title">
+        <h2>Network Activity</h2>
 
-                <h2>
-                    Throughput - Last 24 Hours
-                </h2>
+        <span id="throughput-summary">
+            Collecting data...
+        </span>
+    </div>
 
-                <span id="throughput-summary">
-                    Collecting data...
-                </span>
+    <div class="chart-legend">
 
-            </div>
+        <span>
+            <i class="swatch" style="background:#8fc7ff"></i>
+            Download
+        </span>
 
-            <div class="chart-legend">
+        <span>
+            <i class="swatch" style="background:#d0a7ff"></i>
+            Upload
+        </span>
 
-                <span>
-                    <i class="swatch" style="background:#8fc7ff"></i>Download
-                </span>
-
-                <span>
-                    <i class="swatch" style="background:#d0a7ff"></i>Upload
-                </span>
-
-            </div>
-
-            <div class="chart-readout" id="throughput-readout"></div>
-
-            <canvas
-                id="throughput-chart"
-                class="chart-canvas"
-            ></canvas>
-
-        </div>
-
-
-        <div class="card">
-
-            <div class="section-title">
-
-                <h2>
-                    Packet Loss - Last 24 Hours
-                </h2>
-
-                <span id="loss-summary">
-                    Collecting data...
-                </span>
-
-            </div>
-
-            <div class="chart-legend">
-
-                <span>
-                    <i class="swatch" style="background:#ffb86b"></i>Loss to upstream
-                </span>
-
-            </div>
-
-            <div class="chart-readout" id="loss-readout"></div>
-
-            <canvas
-                id="loss-chart"
-                class="chart-canvas"
-            ></canvas>
-
-        </div>
+        <span>
+            <i class="swatch" style="background:#ffb86b"></i>
+            Packet Loss
+        </span>
 
     </div>
 
+    <canvas
+        id="throughput-chart"
+        class="chart-canvas"
+    ></canvas>
 
-    <!-- DEVICES -->
+</div>
 
-    <div class="card devices-card">
 
-        <div class="devices-head">
+<!-- DEVICES -->
 
-            <div class="section-title">
+<div class="card devices-card">
 
-                <h2>
-                    Connected Devices
-                </h2>
+    <div class="devices-head">
 
-                <span id="device-updated">
-                    Updating...
-                </span>
+        <div class="section-title">
+            <h2>Connected Devices</h2>
 
-            </div>
+            <span id="device-updated">
+                Updating...
+            </span>
+        </div>
+
 
             <div class="sub">
                 DHCP leases, ARP neighbors, and
