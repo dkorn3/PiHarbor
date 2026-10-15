@@ -1,3 +1,15 @@
+# PiHarbor 
+
+<p align="center">
+  <img src="PiHarborLogo.PNG" alt="PiHarbor Logo" width="220">
+</p>
+
+<p align="center">
+  A Raspberry Pi-based router and Wi-Fi access point built with Linux and Python, featuring routing, NAT, DHCP, DNS, firewalling, ad blocking, and network monitoring through a web-based dashboard.
+</p>
+
+---
+
 ## Installation
 
 PiHarbor is designed to run on a Raspberry Pi 3 Model B as a network gateway, providing routing, NAT, DNS, DHCP, firewalling, Wi-Fi access point functionality, traffic monitoring, ad blocking, and a web-based dashboard.
