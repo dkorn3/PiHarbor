@@ -2458,19 +2458,24 @@ body {
 </div>
 
 
-<!-- DEVICES -->
+  <!-- DEVICES -->
 
-<div class="card devices-card">
+    <div class="card devices-card">
 
-    <div class="devices-head">
+        <div class="devices-head">
 
-        <div class="section-title">
-            <h2>Connected Devices</h2>
+            <div class="section-title">
 
-            <span id="device-updated">
-                Updating...
-            </span>
-        </div>
+                <h2>
+                    Connected Devices
+                </h2>
+
+                <span id="device-updated">
+                    Updating...
+                </span>
+
+            </div>
+
 
 
             <div class="sub">
