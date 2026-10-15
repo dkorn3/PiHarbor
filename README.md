@@ -1,5 +1,3 @@
-<h1 align="center">PiHarbor</h1>
-
 <p align="center">
   <img src="PiHarborLogo.png" alt="PiHarbor Logo" width="220">
 </p>
