@@ -1647,10 +1647,11 @@ body {
 
 .logo img {
     display: block;
-    width: 100%;
-    max-width: 170px;
-    height: auto;
-    margin-bottom: 8px;
+    width: 130px;
+    height: 130px;
+    object-fit: cover;
+    border-radius: 50%;
+    margin: 0 auto 8px;
 }
 
 .logo-text {
@@ -2111,7 +2112,7 @@ body {
             onerror="this.style.display='none'; this.nextElementSibling.style.display='block';"
         >
         <div class="logo-text">PiHarbor</div>
-        <span>Network Gateway</span>
+     
     </div>
 
     <div class="nav">
