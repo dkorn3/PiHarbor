@@ -2418,79 +2418,54 @@ body {
     </div>
 
 
-    <!-- LAST 24 HOURS -->
+    <!-- LIVE NETWORK HISTORY -->
 
-    <div class="chart-grid">
+<div class="card">
 
-        <div class="card">
+    <div class="section-title">
+        <h2>Network Traffic & Packet Loss</h2>
 
-            <div class="section-title">
+        <span id="traffic-summary">
+            Starting collection...
+        </span>
+    </div>
 
-                <h2>
-                    Throughput - Last 24 Hours
-                </h2>
+    <div class="chart-legend">
 
-                <span id="throughput-summary">
-                    Collecting data...
-                </span>
+        <span>
+            <i class="swatch" style="background:#8fc7ff"></i>
+            Download
+        </span>
 
-            </div>
+        <span>
+            <i class="swatch" style="background:#d0a7ff"></i>
+            Upload
+        </span>
 
-            <div class="chart-legend">
-
-                <span>
-                    <i class="swatch" style="background:#8fc7ff"></i>Download
-                </span>
-
-                <span>
-                    <i class="swatch" style="background:#d0a7ff"></i>Upload
-                </span>
-
-            </div>
-
-            <div class="chart-readout" id="throughput-readout"></div>
-
-            <canvas
-                id="throughput-chart"
-                class="chart-canvas"
-            ></canvas>
-
-        </div>
-
-
-        <div class="card">
-
-            <div class="section-title">
-
-                <h2>
-                    Packet Loss - Last 24 Hours
-                </h2>
-
-                <span id="loss-summary">
-                    Collecting data...
-                </span>
-
-            </div>
-
-            <div class="chart-legend">
-
-                <span>
-                    <i class="swatch" style="background:#ffb86b"></i>Loss to upstream
-                </span>
-
-            </div>
-
-            <div class="chart-readout" id="loss-readout"></div>
-
-            <canvas
-                id="loss-chart"
-                class="chart-canvas"
-            ></canvas>
-
-        </div>
+        <span>
+            <i class="swatch" style="background:#ffb86b"></i>
+            Packet loss
+        </span>
 
     </div>
 
+    <div class="chart-readout" id="traffic-readout">
+        Waiting for the first sample...
+    </div>
+
+    <canvas
+        id="traffic-history-chart"
+        class="chart-canvas"
+    ></canvas>
+
+    <div class="sub">
+        Rolling 4-hour window.
+        Throughput uses the left axis (Mbps);
+        packet loss uses the right axis (%).
+        Samples are collected every 15 seconds.
+    </div>
+
+</div>
 
     <!-- DEVICES -->
 
