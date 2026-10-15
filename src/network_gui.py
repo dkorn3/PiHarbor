@@ -2420,6 +2420,8 @@ body {
 
     <!-- LIVE NETWORK HISTORY -->
 
+<!-- LIVE NETWORK HISTORY -->
+
 <div class="card">
 
     <div class="section-title">
@@ -2431,7 +2433,6 @@ body {
     </div>
 
     <div class="chart-legend">
-
         <span>
             <i class="swatch" style="background:#8fc7ff"></i>
             Download
@@ -2446,7 +2447,6 @@ body {
             <i class="swatch" style="background:#ffb86b"></i>
             Packet loss
         </span>
-
     </div>
 
     <div class="chart-readout" id="traffic-readout">
@@ -2459,11 +2459,13 @@ body {
     ></canvas>
 
     <div class="sub">
-       <div class="sub">
-    Rolling 4-hour window. Throughput uses the left axis
-    (Mbps); packet loss uses the right axis (%).
-    New readings appear at the configured sampling interval.
+        Rolling 4-hour window. Throughput uses the
+        left axis (Mbps); packet loss uses the
+        right axis (%). New readings appear at the
+        configured sampling interval.
     </div>
+
+</div>
 
 </div>
 
