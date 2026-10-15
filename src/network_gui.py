@@ -1647,8 +1647,8 @@ body {
 
 .logo img {
     display: block;
-    width: 130px;
-    height: 130px;
+    width: 150px;
+    height: 150px;
     object-fit: cover;
     border-radius: 50%;
     margin: 0 auto 8px;
