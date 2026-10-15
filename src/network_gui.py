@@ -2263,20 +2263,10 @@ body {
 
         <div class="card network-card">
 
-            <h3>WAN / LAN</h3>
+            <h3>WAN</h3>
 
             <div class="network-line">
-                <span class="network-name">WAN</span>
 
-                <span
-                    class="state"
-                    id="wan-state"
-                >
-                    --
-                </span>
-            </div>
-
-            <div class="network-line">
                 <span
                     class="network-name"
                     id="wan-interface"
@@ -2285,25 +2275,38 @@ body {
                 </span>
 
                 <span
+                    class="state"
+                    id="wan-state"
+                >
+                    --
+                </span>
+
+            </div>
+
+            <div class="network-line">
+
+                <span class="network-name">
+                    IP Address
+                </span>
+
+                <span
                     class="network-ip"
                     id="wan-ip"
                 >
                     --
                 </span>
+
             </div>
 
-            <div class="network-line">
-                <span class="network-name">LAN</span>
+        </div>
 
-                <span
-                    class="state"
-                    id="lan-state"
-                >
-                    --
-                </span>
-            </div>
+
+        <div class="card network-card">
+
+            <h3>LAN</h3>
 
             <div class="network-line">
+
                 <span
                     class="network-name"
                     id="lan-interface"
@@ -2312,11 +2315,102 @@ body {
                 </span>
 
                 <span
+                    class="state"
+                    id="lan-state"
+                >
+                    --
+                </span>
+
+            </div>
+
+            <div class="network-line">
+
+                <span class="network-name">
+                    IP Address
+                </span>
+
+                <span
                     class="network-ip"
                     id="lan-ip"
                 >
                     --
                 </span>
+
+            </div>
+
+        </div>
+
+
+        <div class="card">
+
+            <h3>Services</h3>
+
+            <div class="service">
+
+                <span class="service-name">
+
+                    <span
+                        class="dot"
+                        id="dhcp-dot"
+                    ></span>
+
+                    DHCP
+
+                </span>
+
+                <span
+                    class="badge"
+                    id="dhcp-status"
+                >
+                    --
+                </span>
+
+            </div>
+
+
+            <div class="service">
+
+                <span class="service-name">
+
+                    <span
+                        class="dot"
+                        id="dns-dot"
+                    ></span>
+
+                    DNS
+
+                </span>
+
+                <span
+                    class="badge"
+                    id="dns-status"
+                >
+                    --
+                </span>
+
+            </div>
+
+
+            <div class="service">
+
+                <span class="service-name">
+
+                    <span
+                        class="dot"
+                        id="nat-dot"
+                    ></span>
+
+                    NAT
+
+                </span>
+
+                <span
+                    class="badge"
+                    id="nat-status"
+                >
+                    --
+                </span>
+
             </div>
 
         </div>
@@ -2324,46 +2418,76 @@ body {
     </div>
 
 
-    <!-- NETWORK ACTIVITY -->
+    <!-- LAST 24 HOURS -->
 
-    <div class="card" style="margin-bottom: 14px;">
+    <div class="chart-grid">
 
-        <div class="section-title">
-            <h2>Network Activity</h2>
+        <div class="card">
 
-            <span id="throughput-summary">
-                Collecting data...
-            </span>
+            <div class="section-title">
+
+                <h2>
+                    Throughput - Last 24 Hours
+                </h2>
+
+                <span id="throughput-summary">
+                    Collecting data...
+                </span>
+
+            </div>
+
+            <div class="chart-legend">
+
+                <span>
+                    <i class="swatch" style="background:#8fc7ff"></i>Download
+                </span>
+
+                <span>
+                    <i class="swatch" style="background:#d0a7ff"></i>Upload
+                </span>
+
+            </div>
+
+            <div class="chart-readout" id="throughput-readout"></div>
+
+            <canvas
+                id="throughput-chart"
+                class="chart-canvas"
+            ></canvas>
+
         </div>
 
-        <div class="chart-legend">
 
-            <span>
-                <i class="swatch" style="background:#8fc7ff"></i>
-                Download
-            </span>
+        <div class="card">
 
-            <span>
-                <i class="swatch" style="background:#d0a7ff"></i>
-                Upload
-            </span>
+            <div class="section-title">
 
-            <span>
-                <i class="swatch" style="background:#ffb86b"></i>
-                Packet Loss
-            </span>
+                <h2>
+                    Packet Loss - Last 24 Hours
+                </h2>
+
+                <span id="loss-summary">
+                    Collecting data...
+                </span>
+
+            </div>
+
+            <div class="chart-legend">
+
+                <span>
+                    <i class="swatch" style="background:#ffb86b"></i>Loss to upstream
+                </span>
+
+            </div>
+
+            <div class="chart-readout" id="loss-readout"></div>
+
+            <canvas
+                id="loss-chart"
+                class="chart-canvas"
+            ></canvas>
 
         </div>
-
-        <div
-            class="chart-readout"
-            id="throughput-readout"
-        ></div>
-
-        <canvas
-            id="throughput-chart"
-            class="chart-canvas"
-        ></canvas>
 
     </div>
 
