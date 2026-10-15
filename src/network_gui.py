@@ -1,9 +1,11 @@
 from flask import (
     Flask,
+    abort,
     jsonify,
     redirect,
     render_template_string,
     request,
+    send_file,
     url_for,
 )
 from datetime import datetime
@@ -14,6 +16,7 @@ import threading
 import time
 
 import config as gateway_config
+import metrics_history
 import monitoring
 import nat as nat_backend
 import topology_tree
@@ -101,6 +104,105 @@ def get_network_config():
     return config.get(
         "network",
         {}
+    )
+
+
+# ============================================================
+# Logo
+# ============================================================
+
+SRC_DIR = os.path.dirname(os.path.abspath(__file__))
+
+# The logo lives in the piharbor directory, one level above src/.
+PROJECT_DIR = os.path.abspath(
+    os.path.join(SRC_DIR, "..")
+)
+
+
+def find_logo_path():
+    """
+    Find the PiHarbor logo PNG in the project directory
+    (falls back to src/).
+    """
+
+    for folder in (PROJECT_DIR, SRC_DIR):
+
+        try:
+            names = sorted(os.listdir(folder))
+        except OSError:
+            continue
+
+        matches = [
+            name
+            for name in names
+            if name.lower().endswith(".png")
+            and (
+                "logo" in name.lower()
+                or "piharbor" in name.lower()
+            )
+        ]
+
+        # Prefer files that mention both piharbor and logo.
+        matches.sort(
+            key=lambda name: (
+                "piharbor" not in name.lower(),
+                "logo" not in name.lower(),
+            )
+        )
+
+        if matches:
+            return os.path.join(folder, matches[0])
+
+    return None
+
+
+@app.route("/logo.png")
+def logo():
+
+    path = find_logo_path()
+
+    if path is None:
+        abort(404)
+
+    return send_file(
+        path,
+        mimetype="image/png",
+        max_age=3600,
+    )
+
+
+# ============================================================
+# 24-Hour History (throughput + packet loss)
+# ============================================================
+
+def _history_settings():
+    """
+    WAN interface and ping target for the history sampler.
+
+    Add "ping_target" to the "network" section of the config
+    to change the packet-loss target (default 1.1.1.1).
+    """
+
+    network = get_network_config()
+
+    return (
+        network.get("wan_interface", "eth0"),
+        network.get("ping_target", "1.1.1.1"),
+    )
+
+
+metrics_history.start(_history_settings)
+
+
+@app.route("/api/history")
+def history_api():
+
+    return jsonify(
+        {
+            "interface": _history_settings()[0],
+            "interval": metrics_history.SAMPLE_INTERVAL,
+            "points": metrics_history.get_history(),
+        }
     )
 
 
@@ -1509,6 +1611,8 @@ DASHBOARD_TEMPLATE = """
 
 <title>PiHarbor Dashboard</title>
 
+<link rel="icon" type="image/png" href="/logo.png">
+
 <style>
 
 * {
@@ -1538,9 +1642,21 @@ body {
 }
 
 .logo {
+    margin-bottom: 30px;
+}
+
+.logo img {
+    display: block;
+    width: 100%;
+    max-width: 170px;
+    height: auto;
+    margin-bottom: 8px;
+}
+
+.logo-text {
+    display: none;
     font-size: 24px;
     font-weight: 700;
-    margin-bottom: 30px;
 }
 
 .logo span {
@@ -1603,7 +1719,7 @@ body {
 .grid {
     display: grid;
     grid-template-columns:
-        repeat(4, minmax(180px, 1fr));
+        repeat(3, minmax(180px, 1fr));
     gap: 14px;
     margin-bottom: 14px;
 }
@@ -1620,12 +1736,6 @@ body {
     color: #8f98a5;
     font-size: 13px;
     font-weight: 500;
-}
-
-.metric {
-    font-size: 27px;
-    font-weight: 700;
-    letter-spacing: -0.4px;
 }
 
 .sub {
@@ -1687,25 +1797,6 @@ body {
 .state {
     font-size: 12px;
     color: #65d985;
-}
-
-.state.offline {
-    color: #d96868;
-}
-
-.progress {
-    height: 5px;
-    background: #252b34;
-    border-radius: 99px;
-    overflow: hidden;
-    margin-top: 12px;
-}
-
-.progress > div {
-    height: 100%;
-    width: 0;
-    background: #7aa2f7;
-    transition: width .25s ease;
 }
 
 .section-title {
@@ -1888,6 +1979,51 @@ body {
     gap: 2px;
 }
 
+.chart-grid {
+    display: grid;
+    grid-template-columns: 2fr 1fr;
+    gap: 14px;
+    margin-bottom: 14px;
+}
+
+.chart-legend {
+    display: flex;
+    gap: 16px;
+    margin-bottom: 8px;
+    color: #8f98a5;
+    font-size: 12px;
+}
+
+.swatch {
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    margin-right: 6px;
+    border-radius: 2px;
+}
+
+.chart-readout {
+    min-height: 18px;
+    margin-bottom: 6px;
+    color: #8f98a5;
+    font-family: monospace;
+    font-size: 12px;
+}
+
+.chart-canvas {
+    display: block;
+    width: 100%;
+    height: 220px;
+    touch-action: pan-y;
+}
+
+@media (max-width: 1050px) {
+
+    .chart-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
 .footer {
     color: #5f6875;
     font-size: 11px;
@@ -1969,7 +2105,12 @@ body {
 <div class="sidebar">
 
     <div class="logo">
-        PiHarbor
+        <img
+            src="/logo.png"
+            alt="PiHarbor"
+            onerror="this.style.display='none'; this.nextElementSibling.style.display='block';"
+        >
+        <div class="logo-text">PiHarbor</div>
         <span>Network Gateway</span>
     </div>
 
@@ -2201,43 +2342,6 @@ body {
 
         <div class="card">
 
-            <h3>Network Traffic</h3>
-
-            <div class="network-line">
-
-                <span class="network-name">
-                    RX
-                </span>
-
-                <span
-                    class="network-ip"
-                    id="network-rx"
-                >
-                    --
-                </span>
-
-            </div>
-
-            <div class="network-line">
-
-                <span class="network-name">
-                    TX
-                </span>
-
-                <span
-                    class="network-ip"
-                    id="network-tx"
-                >
-                    --
-                </span>
-
-            </div>
-
-        </div>
-
-
-        <div class="card">
-
             <h3>Services</h3>
 
             <div class="service">
@@ -2307,6 +2411,80 @@ body {
                 </span>
 
             </div>
+
+        </div>
+
+    </div>
+
+
+    <!-- LAST 24 HOURS -->
+
+    <div class="chart-grid">
+
+        <div class="card">
+
+            <div class="section-title">
+
+                <h2>
+                    Throughput - Last 24 Hours
+                </h2>
+
+                <span id="throughput-summary">
+                    Collecting data...
+                </span>
+
+            </div>
+
+            <div class="chart-legend">
+
+                <span>
+                    <i class="swatch" style="background:#8fc7ff"></i>Download
+                </span>
+
+                <span>
+                    <i class="swatch" style="background:#d0a7ff"></i>Upload
+                </span>
+
+            </div>
+
+            <div class="chart-readout" id="throughput-readout"></div>
+
+            <canvas
+                id="throughput-chart"
+                class="chart-canvas"
+            ></canvas>
+
+        </div>
+
+
+        <div class="card">
+
+            <div class="section-title">
+
+                <h2>
+                    Packet Loss - Last 24 Hours
+                </h2>
+
+                <span id="loss-summary">
+                    Collecting data...
+                </span>
+
+            </div>
+
+            <div class="chart-legend">
+
+                <span>
+                    <i class="swatch" style="background:#ffb86b"></i>Loss to upstream
+                </span>
+
+            </div>
+
+            <div class="chart-readout" id="loss-readout"></div>
+
+            <canvas
+                id="loss-chart"
+                class="chart-canvas"
+            ></canvas>
 
         </div>
 
@@ -2791,22 +2969,6 @@ async function refreshDashboard() {
 
 
         document.getElementById(
-            "network-rx"
-        ).textContent =
-            network.rx_human ||
-            network.rx ||
-            "--";
-
-
-        document.getElementById(
-            "network-tx"
-        ).textContent =
-            network.tx_human ||
-            network.tx ||
-            "--";
-
-
-        document.getElementById(
             "uptime"
         ).textContent =
             data.system?.uptime_text ||
@@ -2927,11 +3089,387 @@ async function refreshDashboard() {
 }
 
 
+function formatRate(bytesPerSecond) {
+
+    const bits = bytesPerSecond * 8;
+
+    if (bits >= 1e9) {
+        return (bits / 1e9).toFixed(2) + " Gbps";
+    }
+
+    if (bits >= 1e6) {
+        return (bits / 1e6).toFixed(1) + " Mbps";
+    }
+
+    if (bits >= 1e3) {
+        return (bits / 1e3).toFixed(0) + " Kbps";
+    }
+
+    return bits.toFixed(0) + " bps";
+}
+
+
+function formatPercent(value) {
+    return value.toFixed(value < 10 ? 1 : 0) + "%";
+}
+
+
+function formatClock(timestamp) {
+
+    return new Date(timestamp * 1000).toLocaleString(
+        [],
+        {
+            weekday: "short",
+            hour: "2-digit",
+            minute: "2-digit"
+        }
+    );
+}
+
+
+function createChart(canvasId, readoutId, seriesDefs, options) {
+
+    const canvas = document.getElementById(canvasId);
+    const readout = document.getElementById(readoutId);
+
+    const PAD = {left: 66, right: 14, top: 12, bottom: 26};
+    const DAY = 86400;
+    const GAP = 180;
+
+    let points = [];
+    let hoverX = null;
+
+
+    function geometry() {
+
+        const rect = canvas.getBoundingClientRect();
+        const end = Date.now() / 1000;
+
+        return {
+            rect: rect,
+            start: end - DAY,
+            plotW: rect.width - PAD.left - PAD.right
+        };
+    }
+
+
+    function nearest(g) {
+
+        const hoverT =
+            g.start + (hoverX - PAD.left) / g.plotW * DAY;
+
+        let best = null;
+
+        points.forEach(function(p) {
+
+            if (
+                best === null ||
+                Math.abs(p.t - hoverT) < Math.abs(best.t - hoverT)
+            ) {
+                best = p;
+            }
+        });
+
+        if (best && Math.abs(best.t - hoverT) <= GAP * 2) {
+            return best;
+        }
+
+        return null;
+    }
+
+
+    function render() {
+
+        const g = geometry();
+
+        if (!g.rect.width) {
+            return;
+        }
+
+        const dpr = window.devicePixelRatio || 1;
+
+        canvas.width = Math.round(g.rect.width * dpr);
+        canvas.height = Math.round(g.rect.height * dpr);
+
+        const ctx = canvas.getContext("2d");
+
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+        const w = g.rect.width;
+        const h = g.rect.height;
+        const plotH = h - PAD.top - PAD.bottom;
+
+        let maxY = options.minMax;
+
+        points.forEach(function(p) {
+            seriesDefs.forEach(function(s) {
+                if (p[s.key] != null && p[s.key] > maxY) {
+                    maxY = p[s.key];
+                }
+            });
+        });
+
+        maxY = maxY * 1.15;
+
+        const x = function(t) {
+            return PAD.left + (t - g.start) / DAY * g.plotW;
+        };
+
+        const y = function(v) {
+            return PAD.top + (1 - v / maxY) * plotH;
+        };
+
+        ctx.font =
+            "11px -apple-system, BlinkMacSystemFont, sans-serif";
+
+        ctx.lineWidth = 1;
+
+        // Horizontal grid + value labels
+        ctx.textAlign = "right";
+        ctx.textBaseline = "middle";
+
+        for (let i = 0; i <= 4; i++) {
+
+            const value = maxY * i / 4;
+            const gy = Math.round(y(value)) + 0.5;
+
+            ctx.strokeStyle = "#252b34";
+            ctx.beginPath();
+            ctx.moveTo(PAD.left, gy);
+            ctx.lineTo(w - PAD.right, gy);
+            ctx.stroke();
+
+            ctx.fillStyle = "#737c89";
+            ctx.fillText(options.format(value), PAD.left - 8, gy);
+        }
+
+        // Time labels every 4 hours
+        ctx.textBaseline = "top";
+
+        for (let i = 0; i <= 6; i++) {
+
+            const t = g.start + i * 4 * 3600;
+
+            ctx.fillStyle = "#737c89";
+
+            ctx.textAlign =
+                i === 0 ? "left" : (i === 6 ? "right" : "center");
+
+            ctx.fillText(
+                new Date(t * 1000).toLocaleTimeString(
+                    [],
+                    {hour: "2-digit", minute: "2-digit"}
+                ),
+                x(t),
+                h - PAD.bottom + 8
+            );
+        }
+
+        // Data lines (broken where samples are missing)
+        seriesDefs.forEach(function(s) {
+
+            ctx.strokeStyle = s.color;
+            ctx.lineWidth = 1.6;
+            ctx.lineJoin = "round";
+            ctx.beginPath();
+
+            let prevT = null;
+
+            points.forEach(function(p) {
+
+                const v = p[s.key];
+
+                if (v == null) {
+                    prevT = null;
+                    return;
+                }
+
+                if (prevT === null || p.t - prevT > GAP) {
+                    ctx.moveTo(x(p.t), y(v));
+                } else {
+                    ctx.lineTo(x(p.t), y(v));
+                }
+
+                prevT = p.t;
+            });
+
+            ctx.stroke();
+        });
+
+        // Hover crosshair
+        const point = hoverX === null ? null : nearest(g);
+
+        if (point) {
+
+            const px = x(point.t);
+
+            ctx.strokeStyle = "#4a5668";
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.moveTo(px, PAD.top);
+            ctx.lineTo(px, PAD.top + plotH);
+            ctx.stroke();
+
+            seriesDefs.forEach(function(s) {
+
+                if (point[s.key] != null) {
+
+                    ctx.fillStyle = s.color;
+                    ctx.beginPath();
+                    ctx.arc(px, y(point[s.key]), 3.5, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+            });
+
+            readout.textContent = options.readout(point);
+
+        } else {
+
+            readout.textContent = options.idle;
+        }
+    }
+
+
+    canvas.addEventListener("pointermove", function(event) {
+
+        hoverX = event.clientX - canvas.getBoundingClientRect().left;
+        render();
+    });
+
+    canvas.addEventListener("pointerleave", function() {
+
+        hoverX = null;
+        render();
+    });
+
+    window.addEventListener("resize", render);
+
+    return {
+        setData: function(newPoints) {
+            points = newPoints;
+            render();
+        }
+    };
+}
+
+
+const throughputChart = createChart(
+    "throughput-chart",
+    "throughput-readout",
+    [
+        {key: "rx", color: "#8fc7ff"},
+        {key: "tx", color: "#d0a7ff"}
+    ],
+    {
+        minMax: 125000,
+        format: formatRate,
+        idle: "Hover over the chart for details",
+        readout: function(p) {
+            return formatClock(p.t) +
+                "  |  Down " +
+                (p.rx != null ? formatRate(p.rx) : "n/a") +
+                "  |  Up " +
+                (p.tx != null ? formatRate(p.tx) : "n/a");
+        }
+    }
+);
+
+
+const lossChart = createChart(
+    "loss-chart",
+    "loss-readout",
+    [
+        {key: "loss", color: "#ffb86b"}
+    ],
+    {
+        minMax: 5,
+        format: formatPercent,
+        idle: "Hover over the chart for details",
+        readout: function(p) {
+            return formatClock(p.t) +
+                "  |  Loss " +
+                (p.loss != null ? formatPercent(p.loss) : "n/a");
+        }
+    }
+);
+
+
+async function refreshHistory() {
+
+    try {
+
+        const response = await fetch(
+            "/api/history",
+            {cache: "no-store"}
+        );
+
+        if (!response.ok) {
+            throw new Error("History request failed");
+        }
+
+        const data = await response.json();
+        const points = data.points || [];
+
+        throughputChart.setData(points);
+        lossChart.setData(points);
+
+        let peakRx = 0;
+        let peakTx = 0;
+        let lossSum = 0;
+        let lossCount = 0;
+        let lossMax = 0;
+
+        points.forEach(function(p) {
+
+            if (p.rx != null && p.rx > peakRx) {
+                peakRx = p.rx;
+            }
+
+            if (p.tx != null && p.tx > peakTx) {
+                peakTx = p.tx;
+            }
+
+            if (p.loss != null) {
+                lossSum += p.loss;
+                lossCount += 1;
+
+                if (p.loss > lossMax) {
+                    lossMax = p.loss;
+                }
+            }
+        });
+
+        document.getElementById("throughput-summary").textContent =
+            points.length > 1
+                ? "Peak down " + formatRate(peakRx) +
+                  " / up " + formatRate(peakTx)
+                : "Collecting data...";
+
+        document.getElementById("loss-summary").textContent =
+            lossCount
+                ? "Avg " + formatPercent(lossSum / lossCount) +
+                  " / max " + formatPercent(lossMax)
+                : "Collecting data...";
+
+    } catch (error) {
+
+        console.error("History refresh failed:", error);
+    }
+}
+
+
 refreshDashboard();
 
 setInterval(
     refreshDashboard,
     3000
+);
+
+refreshHistory();
+
+setInterval(
+    refreshHistory,
+    60000
 );
 
 </script>
@@ -3527,6 +4065,24 @@ def topology_page():
                     border: 1px solid #37465e;
                 }
 
+                .node-symbol.node-logo {
+                    flex: 0 0 56px;
+                    width: 56px;
+                    height: 56px;
+                    background: transparent;
+                    border-color: transparent;
+                }
+
+                .node-symbol img {
+                    width: 100%;
+                    height: 100%;
+                    object-fit: contain;
+                }
+
+                .node-bubble.is-pi {
+                    border-color: #7aa2f7;
+                }
+
                 .node-main {
                     min-width: 0;
                     flex: 1;
@@ -3686,13 +4242,25 @@ def topology_page():
 
                             {% set name = (node.label or "")|lower %}
                             {% set status = node.status or "Unknown" %}
+                            {% set is_pi = (
+                                "piharbor" in name
+                                or "raspberry" in name
+                                or name|trim == "pi"
+                                or ("gateway" in name and "router" not in name)
+                            ) %}
 
                             <li class="tree-node">
 
-                                <div class="node-bubble">
+                                <div class="node-bubble {% if is_pi %}is-pi{% endif %}">
 
-                                    <div class="node-symbol">
-                                        {% if "internet" in name %}
+                                    <div class="node-symbol {% if is_pi %}node-logo{% endif %}">
+                                        {% if is_pi %}
+                                            <img
+                                                src="/logo.png"
+                                                alt="PiHarbor"
+                                                onerror="this.replaceWith('🛡️')"
+                                            >
+                                        {% elif "internet" in name %}
                                             🌐
                                         {% elif "router" in name %}
                                             📡
