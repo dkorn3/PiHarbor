@@ -2418,56 +2418,79 @@ body {
     </div>
 
 
-    <!-- LIVE NETWORK HISTORY -->
+    <!-- LAST 24 HOURS -->
 
-<!-- LIVE NETWORK HISTORY -->
+    <div class="chart-grid">
 
-<div class="card">
+        <div class="card">
 
-    <div class="section-title">
-        <h2>Network Traffic & Packet Loss</h2>
+            <div class="section-title">
 
-        <span id="traffic-summary">
-            Starting collection...
-        </span>
+                <h2>
+                    Throughput - Last 24 Hours
+                </h2>
+
+                <span id="throughput-summary">
+                    Collecting data...
+                </span>
+
+            </div>
+
+            <div class="chart-legend">
+
+                <span>
+                    <i class="swatch" style="background:#8fc7ff"></i>Download
+                </span>
+
+                <span>
+                    <i class="swatch" style="background:#d0a7ff"></i>Upload
+                </span>
+
+            </div>
+
+            <div class="chart-readout" id="throughput-readout"></div>
+
+            <canvas
+                id="throughput-chart"
+                class="chart-canvas"
+            ></canvas>
+
+        </div>
+
+
+        <div class="card">
+
+            <div class="section-title">
+
+                <h2>
+                    Packet Loss - Last 24 Hours
+                </h2>
+
+                <span id="loss-summary">
+                    Collecting data...
+                </span>
+
+            </div>
+
+            <div class="chart-legend">
+
+                <span>
+                    <i class="swatch" style="background:#ffb86b"></i>Loss to upstream
+                </span>
+
+            </div>
+
+            <div class="chart-readout" id="loss-readout"></div>
+
+            <canvas
+                id="loss-chart"
+                class="chart-canvas"
+            ></canvas>
+
+        </div>
+
     </div>
 
-    <div class="chart-legend">
-        <span>
-            <i class="swatch" style="background:#8fc7ff"></i>
-            Download
-        </span>
-
-        <span>
-            <i class="swatch" style="background:#d0a7ff"></i>
-            Upload
-        </span>
-
-        <span>
-            <i class="swatch" style="background:#ffb86b"></i>
-            Packet loss
-        </span>
-    </div>
-
-    <div class="chart-readout" id="traffic-readout">
-        Waiting for the first sample...
-    </div>
-
-    <canvas
-        id="traffic-history-chart"
-        class="chart-canvas"
-    ></canvas>
-
-    <div class="sub">
-        Rolling 4-hour window. Throughput uses the
-        left axis (Mbps); packet loss uses the
-        right axis (%). New readings appear at the
-        configured sampling interval.
-    </div>
-
-</div>
-
-</div>
 
     <!-- DEVICES -->
 
@@ -3067,32 +3090,8 @@ async function refreshDashboard() {
 }
 
 
-// ============================================================
-// Combined Live Traffic + Packet Loss Chart
-// ============================================================
-
-const trafficCanvas = document.getElementById(
-    "traffic-history-chart"
-);
-
-const trafficReadout = document.getElementById(
-    "traffic-readout"
-);
-
-const trafficSummary = document.getElementById(
-    "traffic-summary"
-);
-
-const trafficCtx = trafficCanvas.getContext("2d");
-
-const FOUR_HOURS = 4 * 60 * 60;
-const chartStartedAt = Date.now() / 1000;
-
-let historyPoints = [];
-let samplerInterval = 60;
-
-
 function formatRate(bytesPerSecond) {
+
     const bits = bytesPerSecond * 8;
 
     if (bits >= 1e9) {
@@ -3100,353 +3099,385 @@ function formatRate(bytesPerSecond) {
     }
 
     if (bits >= 1e6) {
-        return (bits / 1e6).toFixed(2) + " Mbps";
+        return (bits / 1e6).toFixed(1) + " Mbps";
     }
 
     if (bits >= 1e3) {
-        return (bits / 1e3).toFixed(1) + " Kbps";
+        return (bits / 1e3).toFixed(0) + " Kbps";
     }
 
     return bits.toFixed(0) + " bps";
 }
 
 
+function formatPercent(value) {
+    return value.toFixed(value < 10 ? 1 : 0) + "%";
+}
+
+
 function formatClock(timestamp) {
-    return new Date(timestamp * 1000).toLocaleTimeString(
+
+    return new Date(timestamp * 1000).toLocaleString(
         [],
         {
+            weekday: "short",
             hour: "2-digit",
-            minute: "2-digit",
-            second: "2-digit"
+            minute: "2-digit"
         }
     );
 }
 
 
-// Backend throughput is in bytes/second.
-// Convert it to Mbps for the graph's left axis.
-function throughputMbps(value) {
-    if (value === null || value === undefined) {
+function createChart(canvasId, readoutId, seriesDefs, options) {
+
+    const canvas = document.getElementById(canvasId);
+    const readout = document.getElementById(readoutId);
+
+    const PAD = {left: 66, right: 14, top: 12, bottom: 26};
+    const DAY = 86400;
+    const GAP = 180;
+
+    let points = [];
+    let hoverX = null;
+
+
+    function geometry() {
+
+        const rect = canvas.getBoundingClientRect();
+        const end = Date.now() / 1000;
+
+        return {
+            rect: rect,
+            start: end - DAY,
+            plotW: rect.width - PAD.left - PAD.right
+        };
+    }
+
+
+    function nearest(g) {
+
+        const hoverT =
+            g.start + (hoverX - PAD.left) / g.plotW * DAY;
+
+        let best = null;
+
+        points.forEach(function(p) {
+
+            if (
+                best === null ||
+                Math.abs(p.t - hoverT) < Math.abs(best.t - hoverT)
+            ) {
+                best = p;
+            }
+        });
+
+        if (best && Math.abs(best.t - hoverT) <= GAP * 2) {
+            return best;
+        }
+
         return null;
     }
 
-    const number = Number(value);
 
-    return Number.isFinite(number)
-        ? number * 8 / 1000000
-        : null;
-}
+    function render() {
 
+        const g = geometry();
 
-function renderTrafficChart() {
-    const width = trafficCanvas.clientWidth;
-    const height = trafficCanvas.clientHeight || 220;
-
-    if (width <= 0) {
-        return;
-    }
-
-    const dpr = window.devicePixelRatio || 1;
-
-    trafficCanvas.width = Math.round(width * dpr);
-    trafficCanvas.height = Math.round(height * dpr);
-
-    trafficCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    trafficCtx.clearRect(0, 0, width, height);
-
-    const now = Date.now() / 1000;
-
-    // Start collecting from when this page was opened.
-    // Once four hours have passed, keep a rolling window.
-    const start = Math.max(
-        chartStartedAt,
-        now - FOUR_HOURS
-    );
-
-    const duration = Math.max(1, now - start);
-
-    const points = historyPoints.filter(function(p) {
-        return Number.isFinite(Number(p.t))
-            && Number(p.t) >= start
-            && Number(p.t) <= now;
-    });
-
-    const pad = {
-        left: 72,
-        right: 48,
-        top: 14,
-        bottom: 30
-    };
-
-    const plotWidth = Math.max(
-        1,
-        width - pad.left - pad.right
-    );
-
-    const plotHeight = Math.max(
-        1,
-        height - pad.top - pad.bottom
-    );
-
-    const rxValues = points
-        .map(p => throughputMbps(p.rx))
-        .filter(v => v !== null);
-
-    const txValues = points
-        .map(p => throughputMbps(p.tx))
-        .filter(v => v !== null);
-
-    const lossValues = points
-        .map(p => p.loss == null ? null : Number(p.loss))
-        .filter(v => v !== null && Number.isFinite(v));
-
-    const peakRate = Math.max(
-        0,
-        ...rxValues,
-        ...txValues
-    );
-
-    const maxRate = Math.max(
-        1,
-        Math.ceil(peakRate * 1.2)
-    );
-
-    const peakLoss = Math.max(0, ...lossValues);
-
-    const maxLoss = Math.min(
-        100,
-        Math.max(5, Math.ceil(peakLoss / 5) * 5)
-    );
-
-    function x(timestamp) {
-        return pad.left
-            + ((timestamp - start) / duration) * plotWidth;
-    }
-
-    function yRate(value) {
-        return pad.top
-            + (1 - value / maxRate) * plotHeight;
-    }
-
-    function yLoss(value) {
-        return pad.top
-            + (1 - value / maxLoss) * plotHeight;
-    }
-
-    // Grid and dual-axis labels.
-    trafficCtx.font = "11px sans-serif";
-    trafficCtx.lineWidth = 1;
-    trafficCtx.textBaseline = "middle";
-
-    for (let i = 0; i <= 4; i++) {
-        const fraction = i / 4;
-
-        const gy = pad.top + fraction * plotHeight;
-
-        trafficCtx.beginPath();
-        trafficCtx.moveTo(pad.left, gy);
-        trafficCtx.lineTo(pad.left + plotWidth, gy);
-
-        trafficCtx.strokeStyle = "#28313c";
-        trafficCtx.stroke();
-
-        trafficCtx.textAlign = "right";
-        trafficCtx.fillStyle = "#8fc7ff";
-
-        trafficCtx.fillText(
-            (maxRate * (1 - fraction)).toFixed(
-                maxRate < 10 ? 1 : 0
-            ),
-            pad.left - 10,
-            gy
-        );
-
-        trafficCtx.textAlign = "left";
-        trafficCtx.fillStyle = "#ffb86b";
-
-        trafficCtx.fillText(
-            (maxLoss * (1 - fraction)).toFixed(0) + "%",
-            pad.left + plotWidth + 9,
-            gy
-        );
-    }
-
-    // Time axis. It grows from the start time, then rolls.
-    trafficCtx.textBaseline = "top";
-    trafficCtx.fillStyle = "#7f8793";
-
-    for (let i = 0; i <= 4; i++) {
-        const timestamp = start + duration * i / 4;
-
-        let label;
-
-        if (i === 0 && now - chartStartedAt < FOUR_HOURS) {
-            label = "Start";
-        } else if (i === 4) {
-            label = "Now";
-        } else {
-            label = formatClock(timestamp);
+        if (!g.rect.width) {
+            return;
         }
 
-        trafficCtx.textAlign =
-            i === 0 ? "left"
-            : i === 4 ? "right"
-            : "center";
+        const dpr = window.devicePixelRatio || 1;
 
-        trafficCtx.fillText(
-            label,
-            x(timestamp),
-            pad.top + plotHeight + 9
-        );
-    }
+        canvas.width = Math.round(g.rect.width * dpr);
+        canvas.height = Math.round(g.rect.height * dpr);
 
-    // Draw a series and break the line across missing samples.
-    function drawSeries(key, color, convert, scaleY) {
-        trafficCtx.beginPath();
+        const ctx = canvas.getContext("2d");
 
-        trafficCtx.strokeStyle = color;
-        trafficCtx.lineWidth = 1.8;
-        trafficCtx.lineJoin = "round";
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
-        let previousTime = null;
+        const w = g.rect.width;
+        const h = g.rect.height;
+        const plotH = h - PAD.top - PAD.bottom;
 
-        const maxGap = Math.max(
-            180,
-            samplerInterval * 2.5
-        );
+        let maxY = options.minMax;
 
         points.forEach(function(p) {
-            const raw = p[key];
-
-            if (raw === null || raw === undefined) {
-                previousTime = null;
-                return;
-            }
-
-            const value = convert(raw);
-
-            if (!Number.isFinite(value)) {
-                previousTime = null;
-                return;
-            }
-
-            const px = x(Number(p.t));
-            const py = scaleY(value);
-
-            if (
-                previousTime === null
-                || Number(p.t) - previousTime > maxGap
-            ) {
-                trafficCtx.moveTo(px, py);
-            } else {
-                trafficCtx.lineTo(px, py);
-            }
-
-            previousTime = Number(p.t);
+            seriesDefs.forEach(function(s) {
+                if (p[s.key] != null && p[s.key] > maxY) {
+                    maxY = p[s.key];
+                }
+            });
         });
 
-        trafficCtx.stroke();
-    }
+        maxY = maxY * 1.15;
 
-    drawSeries(
-        "rx",
-        "#8fc7ff",
-        throughputMbps,
-        yRate
-    );
+        const x = function(t) {
+            return PAD.left + (t - g.start) / DAY * g.plotW;
+        };
 
-    drawSeries(
-        "tx",
-        "#d0a7ff",
-        throughputMbps,
-        yRate
-    );
+        const y = function(v) {
+            return PAD.top + (1 - v / maxY) * plotH;
+        };
 
-    drawSeries(
-        "loss",
-        "#ffb86b",
-        Number,
-        yLoss
-    );
+        ctx.font =
+            "11px -apple-system, BlinkMacSystemFont, sans-serif";
 
-    // Current reading and collection status.
-    if (points.length) {
-        const latest = points[points.length - 1];
+        ctx.lineWidth = 1;
 
-        trafficSummary.textContent =
-            points.length + " samples · interval "
-            + samplerInterval + "s";
+        // Horizontal grid + value labels
+        ctx.textAlign = "right";
+        ctx.textBaseline = "middle";
 
-        trafficReadout.textContent =
-            formatClock(Number(latest.t))
-            + "  |  Download: "
-            + (latest.rx == null
-                ? "N/A"
-                : formatRate(Number(latest.rx)))
-            + "  |  Upload: "
-            + (latest.tx == null
-                ? "N/A"
-                : formatRate(Number(latest.tx)))
-            + "  |  Packet loss: "
-            + (latest.loss == null
-                ? "N/A"
-                : Number(latest.loss).toFixed(1) + "%");
+        for (let i = 0; i <= 4; i++) {
 
-    } else {
-        trafficSummary.textContent = "Starting collection...";
-        trafficReadout.textContent =
-            "Waiting for the first new sample...";
-    }
-}
+            const value = maxY * i / 4;
+            const gy = Math.round(y(value)) + 0.5;
 
+            ctx.strokeStyle = "#252b34";
+            ctx.beginPath();
+            ctx.moveTo(PAD.left, gy);
+            ctx.lineTo(w - PAD.right, gy);
+            ctx.stroke();
 
-async function refreshHistory() {
-    try {
-        const response = await fetch(
-            "/api/history",
-            { cache: "no-store" }
-        );
+            ctx.fillStyle = "#737c89";
+            ctx.fillText(options.format(value), PAD.left - 8, gy);
+        }
 
-        if (!response.ok) {
-            throw new Error(
-                "History API returned HTTP " + response.status
+        // Time labels every 4 hours
+        ctx.textBaseline = "top";
+
+        for (let i = 0; i <= 6; i++) {
+
+            const t = g.start + i * 4 * 3600;
+
+            ctx.fillStyle = "#737c89";
+
+            ctx.textAlign =
+                i === 0 ? "left" : (i === 6 ? "right" : "center");
+
+            ctx.fillText(
+                new Date(t * 1000).toLocaleTimeString(
+                    [],
+                    {hour: "2-digit", minute: "2-digit"}
+                ),
+                x(t),
+                h - PAD.bottom + 8
             );
         }
 
-        const data = await response.json();
+        // Data lines (broken where samples are missing)
+        seriesDefs.forEach(function(s) {
 
-        samplerInterval = Number(data.interval) || 60;
+            ctx.strokeStyle = s.color;
+            ctx.lineWidth = 1.6;
+            ctx.lineJoin = "round";
+            ctx.beginPath();
 
-        historyPoints = (data.points || []).sort(
-            (a, b) => Number(a.t) - Number(b.t)
+            let prevT = null;
+
+            points.forEach(function(p) {
+
+                const v = p[s.key];
+
+                if (v == null) {
+                    prevT = null;
+                    return;
+                }
+
+                if (prevT === null || p.t - prevT > GAP) {
+                    ctx.moveTo(x(p.t), y(v));
+                } else {
+                    ctx.lineTo(x(p.t), y(v));
+                }
+
+                prevT = p.t;
+            });
+
+            ctx.stroke();
+        });
+
+        // Hover crosshair
+        const point = hoverX === null ? null : nearest(g);
+
+        if (point) {
+
+            const px = x(point.t);
+
+            ctx.strokeStyle = "#4a5668";
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.moveTo(px, PAD.top);
+            ctx.lineTo(px, PAD.top + plotH);
+            ctx.stroke();
+
+            seriesDefs.forEach(function(s) {
+
+                if (point[s.key] != null) {
+
+                    ctx.fillStyle = s.color;
+                    ctx.beginPath();
+                    ctx.arc(px, y(point[s.key]), 3.5, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+            });
+
+            readout.textContent = options.readout(point);
+
+        } else {
+
+            readout.textContent = options.idle;
+        }
+    }
+
+
+    canvas.addEventListener("pointermove", function(event) {
+
+        hoverX = event.clientX - canvas.getBoundingClientRect().left;
+        render();
+    });
+
+    canvas.addEventListener("pointerleave", function() {
+
+        hoverX = null;
+        render();
+    });
+
+    window.addEventListener("resize", render);
+
+    return {
+        setData: function(newPoints) {
+            points = newPoints;
+            render();
+        }
+    };
+}
+
+
+const throughputChart = createChart(
+    "throughput-chart",
+    "throughput-readout",
+    [
+        {key: "rx", color: "#8fc7ff"},
+        {key: "tx", color: "#d0a7ff"}
+    ],
+    {
+        minMax: 125000,
+        format: formatRate,
+        idle: "Hover over the chart for details",
+        readout: function(p) {
+            return formatClock(p.t) +
+                "  |  Down " +
+                (p.rx != null ? formatRate(p.rx) : "n/a") +
+                "  |  Up " +
+                (p.tx != null ? formatRate(p.tx) : "n/a");
+        }
+    }
+);
+
+
+const lossChart = createChart(
+    "loss-chart",
+    "loss-readout",
+    [
+        {key: "loss", color: "#ffb86b"}
+    ],
+    {
+        minMax: 5,
+        format: formatPercent,
+        idle: "Hover over the chart for details",
+        readout: function(p) {
+            return formatClock(p.t) +
+                "  |  Loss " +
+                (p.loss != null ? formatPercent(p.loss) : "n/a");
+        }
+    }
+);
+
+
+async function refreshHistory() {
+
+    try {
+
+        const response = await fetch(
+            "/api/history",
+            {cache: "no-store"}
         );
 
-        renderTrafficChart();
+        if (!response.ok) {
+            throw new Error("History request failed");
+        }
+
+        const data = await response.json();
+        const points = data.points || [];
+
+        throughputChart.setData(points);
+        lossChart.setData(points);
+
+        let peakRx = 0;
+        let peakTx = 0;
+        let lossSum = 0;
+        let lossCount = 0;
+        let lossMax = 0;
+
+        points.forEach(function(p) {
+
+            if (p.rx != null && p.rx > peakRx) {
+                peakRx = p.rx;
+            }
+
+            if (p.tx != null && p.tx > peakTx) {
+                peakTx = p.tx;
+            }
+
+            if (p.loss != null) {
+                lossSum += p.loss;
+                lossCount += 1;
+
+                if (p.loss > lossMax) {
+                    lossMax = p.loss;
+                }
+            }
+        });
+
+        document.getElementById("throughput-summary").textContent =
+            points.length > 1
+                ? "Peak down " + formatRate(peakRx) +
+                  " / up " + formatRate(peakTx)
+                : "Collecting data...";
+
+        document.getElementById("loss-summary").textContent =
+            lossCount
+                ? "Avg " + formatPercent(lossSum / lossCount) +
+                  " / max " + formatPercent(lossMax)
+                : "Collecting data...";
 
     } catch (error) {
-        console.error("History refresh failed:", error);
 
-        trafficSummary.textContent = "History unavailable";
-        trafficReadout.textContent =
-            "Could not load /api/history. Check the browser console.";
+        console.error("History refresh failed:", error);
     }
 }
 
 
-// Keep dashboard refresh running as before.
 refreshDashboard();
 
-setInterval(refreshDashboard, 3000);
+setInterval(
+    refreshDashboard,
+    3000
+);
 
-// Poll the existing history API for new samples.
 refreshHistory();
 
-setInterval(refreshHistory, 15000);
-
-window.addEventListener(
-    "resize",
-    renderTrafficChart
+setInterval(
+    refreshHistory,
+    60000
 );
+
+</script>
+
+</body>
+</html>
+"""
 
 
 # ============================================================
