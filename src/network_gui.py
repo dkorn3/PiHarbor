@@ -3412,7 +3412,7 @@ def topology_page():
                     position: relative;
                     display: flex;
                     justify-content: center;
-                    padding-top: 38px;
+                    padding-top: 52px;
                 }
 
                 .tree-node {
@@ -3422,7 +3422,7 @@ def topology_page():
                     flex-direction: column;
                     align-items: center;
                     text-align: center;
-                    padding: 38px 13px 0;
+                    padding: 52px 13px 0;
                 }
 
                 .tree > .tree-node {
