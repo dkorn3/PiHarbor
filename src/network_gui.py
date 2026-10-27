@@ -3654,84 +3654,92 @@ def topology_page():
 
                 /* Each level forms a horizontal tier. */
 
+
+                /* Tree layout */
                 .tree,
                 .tree ul {
                     list-style: none;
                     margin: 0;
-                    padding: 38x;
+                    padding: 0;
                 }
-
+                
                 .tree {
                     display: flex;
                     justify-content: center;
                     width: max-content;
                     min-width: 100%;
                 }
-
+                
                 .tree ul {
                     position: relative;
                     display: flex;
                     justify-content: center;
+                    align-items: flex-start;
                     padding-top: 38px;
                 }
-
+                
+                /* Each node and its children */
                 .tree-node {
                     position: relative;
-                    list-style: none;
                     display: flex;
                     flex-direction: column;
                     align-items: center;
+                    flex: 0 0 auto;
+                    list-style: none;
                     text-align: center;
                     padding: 38px 13px 0;
                 }
-
+                
+                /* Root node has no incoming connector */
                 .tree > .tree-node {
                     padding-top: 0;
                 }
-
-                /* Lines joining sibling nodes. */
-
+                
+                /* Horizontal connectors between siblings */
                 .tree-node::before,
                 .tree-node::after {
                     content: "";
                     position: absolute;
                     top: 0;
-                    right: 50%;
                     width: 50%;
                     height: 38px;
                     border-top: 1px solid #3c4655;
                 }
-
+                
+                .tree-node::before {
+                    right: 50%;
+                }
+                
                 .tree-node::after {
-                    right: auto;
                     left: 50%;
                     border-left: 1px solid #3c4655;
                 }
-
+                
+                /* First and last children terminate the horizontal line */
                 .tree-node:first-child::before {
                     border-top: 0;
                 }
-
+                
                 .tree-node:last-child::after {
                     border-top: 0;
                 }
-
+                
+                /* A single child needs only a vertical connector */
                 .tree-node:only-child::before {
                     display: none;
                 }
-
+                
                 .tree-node:only-child::after {
                     border-top: 0;
                 }
-
+                
+                /* Hide connectors above the root */
                 .tree > .tree-node::before,
                 .tree > .tree-node::after {
                     display: none;
                 }
-
-
-                /* Vertical connection from parent to child tier. */
-
+                
+                /* Vertical connector from a parent to its child row */
                 .tree ul::before {
                     content: "";
                     position: absolute;
@@ -3740,6 +3748,7 @@ def topology_page():
                     height: 38px;
                     border-left: 1px solid #3c4655;
                 }
+
 
                 /* Device bubbles. */
 
