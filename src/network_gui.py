@@ -2296,10 +2296,6 @@ body {
             Topology
         </a>
         
-        <a href="/network">
-            Network
-        </a>
-
         <a href="/dns">
             DNS
         </a>
@@ -2316,9 +2312,6 @@ body {
 
             <h1>Dashboard</h1>
 
-            <div class="header-sub">
-                Live gateway and LAN overview
-            </div>
 
         </div>
     </div>
@@ -3519,7 +3512,7 @@ def topology_page():
 
                 body {
                     margin: 0;
-                    padding: 28px;
+                    padding: 0;
                     background: #0b0e12;
                     color: #f3f4f6;
                     font-family:
@@ -3529,9 +3522,62 @@ def topology_page():
                         sans-serif;
                 }
 
+                .sidebar {
+                    position: fixed;
+                    left: 0;
+                    top: 0;
+                    bottom: 0;
+                    width: 220px;
+                    background: #12161c;
+                    border-right: 1px solid #252b34;
+                    padding: 24px 16px;
+                    z-index: 10;
+                }
+
+                .logo {
+                    margin-bottom: 30px;
+                    text-align: center;
+                }
+
+                .logo img {
+                    display: block;
+                    width: 150px;
+                    height: 150px;
+                    object-fit: cover;
+                    border-radius: 50%;
+                    margin: 0 auto 8px;
+                }
+
+                .logo-text {
+                    display: none;
+                    font-size: 24px;
+                    font-weight: 700;
+                }
+
+                .nav a {
+                    display: block;
+                    padding: 11px 13px;
+                    margin-bottom: 5px;
+                    border-radius: 8px;
+                    color: #aeb5bf;
+                    text-decoration: none;
+                }
+
+                .nav a:hover,
+                .nav a.active {
+                    background: #222831;
+                    color: #fff;
+                }
+
+                .main {
+                    margin-left: 220px;
+                    min-width: 0;
+                }
+
                 .page {
                     max-width: 1600px;
                     margin: auto;
+                    padding: 28px;
                 }
 
                 .back {
@@ -3831,8 +3877,18 @@ def topology_page():
                     font-size: 13px;
                 }
 
-                @media (max-width: 700px) {
-                    body {
+                @media (max-width: 800px) {
+                    .sidebar {
+                        position: static;
+                        width: 100%;
+                        height: auto;
+                    }
+
+                    .main {
+                        margin-left: 0;
+                    }
+
+                    .page {
                         padding: 16px;
                     }
 
@@ -3857,11 +3913,21 @@ def topology_page():
         </head>
 
         <body>
-            <div class="page">
-
-                <a class="back" href="/">
-                    ← Back to Dashboard
-                </a>
+            <div class="sidebar">
+                <div class="logo">
+                    <img src="/logo.png" alt="PiHarbor"
+                         onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
+                    <div class="logo-text">PiHarbor</div>
+                </div>
+                <div class="nav">
+                    <a href="/">Dashboard</a>
+                    <a href="/health">Device Health</a>
+                    <a href="/topology" class="active">Topology</a>
+                    <a href="/dns">DNS</a>
+                </div>
+            </div>
+            <div class="main">
+              <div class="page">
 
                 <div class="header">
                     <h1>Network Topology</h1>
@@ -4023,6 +4089,7 @@ def topology_page():
                 </div>
                 {% endif %}
 
+              </div>
             </div>
         </body>
         </html>
@@ -4234,8 +4301,8 @@ def device_health_page():
                     Device Health
                 </a>
 
-                <a href="/network">
-                    Network
+                <a href="/topology">
+                    Topology
                 </a>
 
                 <a href="/dns">
@@ -5115,12 +5182,48 @@ def dns_page():
 
         <style>
 
+        * { box-sizing: border-box; }
+
         body {
-            background:#0f1115;
+            margin: 0;
+            padding: 0;
+            background:#0b0e12;
             color:#f1f1f1;
             font-family:Arial,sans-serif;
-            padding:30px;
         }
+
+        .sidebar {
+            position: fixed;
+            left: 0;
+            top: 0;
+            bottom: 0;
+            width: 220px;
+            background: #12161c;
+            border-right: 1px solid #252b34;
+            padding: 24px 16px;
+            z-index: 10;
+        }
+
+        .logo { margin-bottom: 30px; text-align: center; }
+        .logo img {
+            display: block;
+            width: 150px;
+            height: 150px;
+            object-fit: cover;
+            border-radius: 50%;
+            margin: 0 auto 8px;
+        }
+        .logo-text { display: none; font-size: 24px; font-weight: 700; }
+        .nav a {
+            display: block;
+            padding: 11px 13px;
+            margin-bottom: 5px;
+            border-radius: 8px;
+            color: #aeb5bf;
+            text-decoration: none;
+        }
+        .nav a:hover, .nav a.active { background: #222831; color: #fff; }
+        .main { margin-left: 220px; padding: 30px; max-width: 1600px; }
 
         .card {
             background:#171a21;
@@ -5228,12 +5331,20 @@ def dns_page():
             margin:0;
         }
 
-        @media (max-width:600px) {
-
-            .custom-domain-form {
-                flex-direction:column;
+        @media (max-width:800px) {
+            .sidebar {
+                position: static;
+                width: 100%;
+                height: auto;
             }
+            .main {
+                margin-left: 0;
+                padding: 16px;
+            }
+        }
 
+        @media (max-width:600px) {
+            .custom-domain-form { flex-direction:column; }
         }
 
         </style>
@@ -5241,16 +5352,21 @@ def dns_page():
         </head>
 
         <body>
+        <div class="sidebar">
+            <div class="logo">
+                <img src="/logo.png" alt="PiHarbor"
+                     onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
+                <div class="logo-text">PiHarbor</div>
+            </div>
+            <div class="nav">
+                <a href="/">Dashboard</a>
+                <a href="/health">Device Health</a>
+                <a href="/topology">Topology</a>
+                <a href="/dns" class="active">DNS</a>
+            </div>
+        </div>
 
-        <p>
-
-            <a href="/">
-                ← Dashboard
-            </a>
-
-        </p>
-
-
+        <div class="main">
         <h1>
             DNS
         </h1>
@@ -5547,7 +5663,7 @@ def dns_page():
             {% endif %}
 
         </div>
-
+        </div>
 
         </body>
 
