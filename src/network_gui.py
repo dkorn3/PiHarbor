@@ -2418,76 +2418,26 @@ body {
     </div>
 
 
-    <!-- LAST 24 HOURS -->
+    <!-- LAST 24 HOURS: COMBINED THROUGHPUT + PACKET LOSS -->
 
-    <div class="chart-grid">
+    <div class="card" style="margin-bottom:14px;">
 
-        <div class="card">
-
-            <div class="section-title">
-
-                <h2>
-                    Throughput - Last 24 Hours
-                </h2>
-
-                <span id="throughput-summary">
-                    Collecting data...
-                </span>
-
-            </div>
-
-            <div class="chart-legend">
-
-                <span>
-                    <i class="swatch" style="background:#8fc7ff"></i>Download
-                </span>
-
-                <span>
-                    <i class="swatch" style="background:#d0a7ff"></i>Upload
-                </span>
-
-            </div>
-
-            <div class="chart-readout" id="throughput-readout"></div>
-
-            <canvas
-                id="throughput-chart"
-                class="chart-canvas"
-            ></canvas>
-
+        <div class="section-title">
+            <h2>Network Performance - Last 24 Hours</h2>
+            <span id="throughput-summary">Collecting data...</span>
         </div>
 
-
-        <div class="card">
-
-            <div class="section-title">
-
-                <h2>
-                    Packet Loss - Last 24 Hours
-                </h2>
-
-                <span id="loss-summary">
-                    Collecting data...
-                </span>
-
-            </div>
-
-            <div class="chart-legend">
-
-                <span>
-                    <i class="swatch" style="background:#ffb86b"></i>Loss to upstream
-                </span>
-
-            </div>
-
-            <div class="chart-readout" id="loss-readout"></div>
-
-            <canvas
-                id="loss-chart"
-                class="chart-canvas"
-            ></canvas>
-
+        <div class="chart-legend">
+            <span><i class="swatch" style="background:#8fc7ff"></i>Download</span>
+            <span><i class="swatch" style="background:#d0a7ff"></i>Upload</span>
+            <span><i class="swatch" style="background:#ffb86b"></i>Packet loss</span>
         </div>
+
+        <div class="chart-readout" id="throughput-readout">Hover over the chart for details</div>
+
+        <canvas id="throughput-chart" class="chart-canvas"></canvas>
+
+        <div class="sub">Left axis: throughput · Right axis: packet loss (%)</div>
 
     </div>
 
@@ -3133,7 +3083,7 @@ function createChart(canvasId, readoutId, seriesDefs, options) {
     const canvas = document.getElementById(canvasId);
     const readout = document.getElementById(readoutId);
 
-    const PAD = {left: 66, right: 14, top: 12, bottom: 26};
+    const PAD = {left: 66, right: 66, top: 12, bottom: 26};
     const DAY = 86400;
     const GAP = 180;
 
@@ -3204,7 +3154,7 @@ function createChart(canvasId, readoutId, seriesDefs, options) {
 
         points.forEach(function(p) {
             seriesDefs.forEach(function(s) {
-                if (p[s.key] != null && p[s.key] > maxY) {
+                if (s.axis !== "right" && p[s.key] != null && p[s.key] > maxY) {
                     maxY = p[s.key];
                 }
             });
@@ -3216,7 +3166,10 @@ function createChart(canvasId, readoutId, seriesDefs, options) {
             return PAD.left + (t - g.start) / DAY * g.plotW;
         };
 
-        const y = function(v) {
+        const y = function(v, series) {
+            if (series && series.axis === "right") {
+                return PAD.top + (1 - v / options.rightMax) * plotH;
+            }
             return PAD.top + (1 - v / maxY) * plotH;
         };
 
@@ -3242,6 +3195,16 @@ function createChart(canvasId, readoutId, seriesDefs, options) {
 
             ctx.fillStyle = "#737c89";
             ctx.fillText(options.format(value), PAD.left - 8, gy);
+        }
+
+        if (options.rightMax != null) {
+            ctx.textAlign = "left";
+            for (let i = 0; i <= 4; i++) {
+                const value = options.rightMax * i / 4;
+                const gy = Math.round(PAD.top + (1 - value / options.rightMax) * plotH) + 0.5;
+                ctx.fillStyle = "#737c89";
+                ctx.fillText(formatPercent(value), w - PAD.right + 8, gy);
+            }
         }
 
         // Time labels every 4 hours
@@ -3286,9 +3249,9 @@ function createChart(canvasId, readoutId, seriesDefs, options) {
                 }
 
                 if (prevT === null || p.t - prevT > GAP) {
-                    ctx.moveTo(x(p.t), y(v));
+                    ctx.moveTo(x(p.t), y(v, s));
                 } else {
-                    ctx.lineTo(x(p.t), y(v));
+                    ctx.lineTo(x(p.t), y(v, s));
                 }
 
                 prevT = p.t;
@@ -3317,7 +3280,7 @@ function createChart(canvasId, readoutId, seriesDefs, options) {
 
                     ctx.fillStyle = s.color;
                     ctx.beginPath();
-                    ctx.arc(px, y(point[s.key]), 3.5, 0, Math.PI * 2);
+                    ctx.arc(px, y(point[s.key], s), 3.5, 0, Math.PI * 2);
                     ctx.fill();
                 }
             });
@@ -3359,41 +3322,22 @@ const throughputChart = createChart(
     "throughput-readout",
     [
         {key: "rx", color: "#8fc7ff"},
-        {key: "tx", color: "#d0a7ff"}
+        {key: "tx", color: "#d0a7ff"},
+        {key: "loss", color: "#ffb86b", axis: "right"}
     ],
     {
         minMax: 125000,
+        rightMax: 100,
         format: formatRate,
-        idle: "Hover over the chart for details",
+        idle: "Hover over the chart for download, upload, and packet loss",
         readout: function(p) {
             return formatClock(p.t) +
-                "  |  Down " +
-                (p.rx != null ? formatRate(p.rx) : "n/a") +
-                "  |  Up " +
-                (p.tx != null ? formatRate(p.tx) : "n/a");
+                "  |  Down " + (p.rx != null ? formatRate(p.rx) : "n/a") +
+                "  |  Up " + (p.tx != null ? formatRate(p.tx) : "n/a") +
+                "  |  Loss " + (p.loss != null ? formatPercent(p.loss) : "n/a");
         }
     }
 );
-
-
-const lossChart = createChart(
-    "loss-chart",
-    "loss-readout",
-    [
-        {key: "loss", color: "#ffb86b"}
-    ],
-    {
-        minMax: 5,
-        format: formatPercent,
-        idle: "Hover over the chart for details",
-        readout: function(p) {
-            return formatClock(p.t) +
-                "  |  Loss " +
-                (p.loss != null ? formatPercent(p.loss) : "n/a");
-        }
-    }
-);
-
 
 async function refreshHistory() {
 
@@ -3412,7 +3356,6 @@ async function refreshHistory() {
         const points = data.points || [];
 
         throughputChart.setData(points);
-        lossChart.setData(points);
 
         let peakRx = 0;
         let peakTx = 0;
@@ -3443,13 +3386,9 @@ async function refreshHistory() {
         document.getElementById("throughput-summary").textContent =
             points.length > 1
                 ? "Peak down " + formatRate(peakRx) +
-                  " / up " + formatRate(peakTx)
-                : "Collecting data...";
-
-        document.getElementById("loss-summary").textContent =
-            lossCount
-                ? "Avg " + formatPercent(lossSum / lossCount) +
-                  " / max " + formatPercent(lossMax)
+                  " / up " + formatRate(peakTx) +
+                  (lossCount ? " · Avg loss " + formatPercent(lossSum / lossCount) +
+                  " / max " + formatPercent(lossMax) : "")
                 : "Collecting data...";
 
     } catch (error) {
