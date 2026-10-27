@@ -2097,6 +2097,173 @@ body {
     }
 }
 
+/* Network address overview */
+.address-section {
+    margin: 0 0 18px;
+    padding: 20px;
+    background: linear-gradient(135deg, #141b24 0%, #10151c 100%);
+    border: 1px solid #293342;
+    border-radius: 16px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, .16);
+}
+
+.address-section-heading {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    margin-bottom: 16px;
+}
+
+.address-section-heading h2 {
+    margin: 0;
+    font-size: 17px;
+    font-weight: 650;
+    letter-spacing: -.02em;
+}
+
+.address-section-heading p {
+    margin: 5px 0 0;
+    color: #8793a3;
+    font-size: 12px;
+}
+
+.address-live {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 6px 10px;
+    border: 1px solid #2b473c;
+    border-radius: 999px;
+    color: #9ddbb5;
+    background: rgba(43, 112, 75, .12);
+    font-size: 11px;
+    white-space: nowrap;
+}
+
+.live-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: #5ed58b;
+    box-shadow: 0 0 8px rgba(94, 213, 139, .5);
+}
+
+.ip-strip {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+}
+
+.ip-item {
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 18px;
+    border: 1px solid #2b3543;
+    border-radius: 12px;
+    background: rgba(8, 12, 18, .56);
+}
+
+.ip-icon {
+    display: grid;
+    place-items: center;
+    flex: 0 0 44px;
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
+    font-size: 24px;
+    font-weight: 600;
+}
+
+.wan-address .ip-icon {
+    color: #8fc7ff;
+    background: rgba(73, 145, 220, .15);
+    border: 1px solid rgba(105, 174, 245, .2);
+}
+
+.lan-address .ip-icon {
+    color: #b8a0ff;
+    background: rgba(137, 102, 220, .15);
+    border: 1px solid rgba(163, 132, 245, .2);
+}
+
+.ip-details {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    gap: 4px;
+}
+
+.ip-label {
+    color: #e3e9f1;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: .06em;
+}
+
+.ip-label-sub {
+    color: #8793a3;
+    font-weight: 400;
+    letter-spacing: 0;
+}
+
+.ip-value {
+    color: #f7f9fc;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: clamp(17px, 2vw, 23px);
+    font-weight: 650;
+    letter-spacing: -.04em;
+    overflow-wrap: anywhere;
+    line-height: 1.35;
+}
+
+.ip-interface {
+    color: #8793a3;
+    font-size: 11px;
+}
+
+.ip-kind {
+    margin-left: auto;
+    align-self: flex-start;
+    padding: 5px 7px;
+    border-radius: 5px;
+    color: #8fa0b4;
+    background: #202936;
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: .08em;
+    white-space: nowrap;
+}
+
+@media (max-width: 800px) {
+    .ip-strip { grid-template-columns: 1fr; }
+    .address-section { padding: 15px; }
+    .ip-item { padding: 15px; }
+}
+
+@media (max-width: 800px) {
+
+            .sidebar {
+                position: static;
+                width: 100%;
+                height: auto;
+            }
+
+            .main {
+                margin-left: 0;
+                padding: 16px;
+            }
+
+            .grid {
+                grid-template-columns: 1fr;
+            }
+
+        }
+
+        
+
 </style>
 
 </head>
@@ -4036,172 +4203,7 @@ def device_health_page():
         }
 
         
-/* Network address overview */
-.address-section {
-    margin: 0 0 18px;
-    padding: 20px;
-    background: linear-gradient(135deg, #141b24 0%, #10151c 100%);
-    border: 1px solid #293342;
-    border-radius: 16px;
-    box-shadow: 0 8px 24px rgba(0, 0, 0, .16);
-}
-
-.address-section-heading {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 14px;
-    margin-bottom: 16px;
-}
-
-.address-section-heading h2 {
-    margin: 0;
-    font-size: 17px;
-    font-weight: 650;
-    letter-spacing: -.02em;
-}
-
-.address-section-heading p {
-    margin: 5px 0 0;
-    color: #8793a3;
-    font-size: 12px;
-}
-
-.address-live {
-    display: inline-flex;
-    align-items: center;
-    gap: 7px;
-    padding: 6px 10px;
-    border: 1px solid #2b473c;
-    border-radius: 999px;
-    color: #9ddbb5;
-    background: rgba(43, 112, 75, .12);
-    font-size: 11px;
-    white-space: nowrap;
-}
-
-.live-dot {
-    width: 6px;
-    height: 6px;
-    border-radius: 50%;
-    background: #5ed58b;
-    box-shadow: 0 0 8px rgba(94, 213, 139, .5);
-}
-
-.ip-strip {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 12px;
-}
-
-.ip-item {
-    min-width: 0;
-    display: flex;
-    align-items: center;
-    gap: 14px;
-    padding: 18px;
-    border: 1px solid #2b3543;
-    border-radius: 12px;
-    background: rgba(8, 12, 18, .56);
-}
-
-.ip-icon {
-    display: grid;
-    place-items: center;
-    flex: 0 0 44px;
-    width: 44px;
-    height: 44px;
-    border-radius: 12px;
-    font-size: 24px;
-    font-weight: 600;
-}
-
-.wan-address .ip-icon {
-    color: #8fc7ff;
-    background: rgba(73, 145, 220, .15);
-    border: 1px solid rgba(105, 174, 245, .2);
-}
-
-.lan-address .ip-icon {
-    color: #b8a0ff;
-    background: rgba(137, 102, 220, .15);
-    border: 1px solid rgba(163, 132, 245, .2);
-}
-
-.ip-details {
-    display: flex;
-    flex-direction: column;
-    min-width: 0;
-    gap: 4px;
-}
-
-.ip-label {
-    color: #e3e9f1;
-    font-size: 12px;
-    font-weight: 700;
-    letter-spacing: .06em;
-}
-
-.ip-label-sub {
-    color: #8793a3;
-    font-weight: 400;
-    letter-spacing: 0;
-}
-
-.ip-value {
-    color: #f7f9fc;
-    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-    font-size: clamp(17px, 2vw, 23px);
-    font-weight: 650;
-    letter-spacing: -.04em;
-    overflow-wrap: anywhere;
-    line-height: 1.35;
-}
-
-.ip-interface {
-    color: #8793a3;
-    font-size: 11px;
-}
-
-.ip-kind {
-    margin-left: auto;
-    align-self: flex-start;
-    padding: 5px 7px;
-    border-radius: 5px;
-    color: #8fa0b4;
-    background: #202936;
-    font-size: 9px;
-    font-weight: 700;
-    letter-spacing: .08em;
-    white-space: nowrap;
-}
-
-@media (max-width: 800px) {
-    .ip-strip { grid-template-columns: 1fr; }
-    .address-section { padding: 15px; }
-    .ip-item { padding: 15px; }
-}
-
-@media (max-width: 800px) {
-
-            .sidebar {
-                position: static;
-                width: 100%;
-                height: auto;
-            }
-
-            .main {
-                margin-left: 0;
-                padding: 16px;
-            }
-
-            .grid {
-                grid-template-columns: 1fr;
-            }
-
-        }
-
-        </style>
+</style>
 
         </head>
 
