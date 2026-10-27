@@ -3946,45 +3946,16 @@ def topology_page():
                     </div>
                 </div>
 
+                                 {% if topology.metadata.wireguard_present %}
                 <div class="summary">
-
-                    <div class="summary-item">
-                        WAN
-                        <strong>
-                            {{ topology.metadata.wan_interface }}
-                        </strong>
-                        <strong>
-                            {{ topology.metadata.wan_ip or "N/A" }}
-                        </strong>
-                    </div>
-
-                    <div class="summary-item">
-                        LAN
-                        <strong>
-                            {{ topology.metadata.lan_interface }}
-                        </strong>
-                        <strong>
-                            {{ topology.metadata.lan_ip or "N/A" }}
-                        </strong>
-                    </div>
-
-                    <div class="summary-item">
-                        Connected clients
-                        <strong>
-                            {{ topology.metadata.client_count }}
-                        </strong>
-                    </div>
-
-                    {% if topology.metadata.wireguard_present %}
                     <div class="summary-item">
                         WireGuard
                         <strong>
                             {{ "Active" if topology.metadata.wireguard_active else "Inactive" }}
                         </strong>
                     </div>
-                    {% endif %}
-
                 </div>
+                {% endif %}
 
                 <div class="topology-panel">
                     <div class="topology-canvas">
