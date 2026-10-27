@@ -2154,269 +2154,22 @@ body {
             </div>
 
         </div>
-
-        <div class="status">
-
-            <span
-                class="dot active"
-                id="gateway-dot"
-            ></span>
-
-            <span id="gateway-status">
-                PiHarbor Online
-            </span>
-
-        </div>
-
     </div>
 
-
-    <!-- QUICK SUMMARY -->
-
-    <div class="summary">
-
-        <div class="summary-card">
-
-            <div class="summary-label">
-                Connected Devices
-            </div>
-
-            <div
-                class="summary-value"
-                id="device-count"
-            >
-                0
-            </div>
-
-            <div class="sub">
-                LAN clients currently visible
-            </div>
-
+    <!-- WAN / LAN ADDRESSES -->
+    <div class="ip-strip">
+        <div class="ip-item">
+            <span class="ip-label">WAN IP</span>
+            <span class="ip-value" id="wan-ip">--</span>
+            <span class="ip-interface" id="wan-interface">WAN</span>
         </div>
-
-
-        <div class="summary-card">
-
-            <div class="summary-label">
-                TCP Connections
-            </div>
-
-            <div
-                class="summary-value"
-                id="connections"
-            >
-                --
-            </div>
-
-            <div class="sub">
-                Active network connections
-            </div>
-
+        <div class="ip-divider"></div>
+        <div class="ip-item">
+            <span class="ip-label">LAN IP</span>
+            <span class="ip-value" id="lan-ip">--</span>
+            <span class="ip-interface" id="lan-interface">LAN</span>
         </div>
-
-
-        <div class="summary-card">
-
-            <div class="summary-label">
-                Internet
-            </div>
-
-            <div
-                class="summary-value"
-                id="internet"
-            >
-                --
-            </div>
-
-            <div class="sub">
-                WAN connectivity
-            </div>
-
-        </div>
-
-
-        <div class="summary-card">
-
-            <div class="summary-label">
-                Uptime
-            </div>
-
-            <div
-                class="summary-value"
-                id="uptime"
-            >
-                --
-            </div>
-
-            <div class="sub">
-                System uptime
-            </div>
-
-        </div>
-
     </div>
-
-
-    <!-- WAN / LAN -->
-
-    <div class="grid">
-
-        <div class="card network-card">
-
-            <h3>WAN</h3>
-
-            <div class="network-line">
-
-                <span
-                    class="network-name"
-                    id="wan-interface"
-                >
-                    --
-                </span>
-
-                <span
-                    class="state"
-                    id="wan-state"
-                >
-                    --
-                </span>
-
-            </div>
-
-            <div class="network-line">
-
-                <span class="network-name">
-                    IP Address
-                </span>
-
-                <span
-                    class="network-ip"
-                    id="wan-ip"
-                >
-                    --
-                </span>
-
-            </div>
-
-        </div>
-
-
-        <div class="card network-card">
-
-            <h3>LAN</h3>
-
-            <div class="network-line">
-
-                <span
-                    class="network-name"
-                    id="lan-interface"
-                >
-                    --
-                </span>
-
-                <span
-                    class="state"
-                    id="lan-state"
-                >
-                    --
-                </span>
-
-            </div>
-
-            <div class="network-line">
-
-                <span class="network-name">
-                    IP Address
-                </span>
-
-                <span
-                    class="network-ip"
-                    id="lan-ip"
-                >
-                    --
-                </span>
-
-            </div>
-
-        </div>
-
-
-        <div class="card">
-
-            <h3>Services</h3>
-
-            <div class="service">
-
-                <span class="service-name">
-
-                    <span
-                        class="dot"
-                        id="dhcp-dot"
-                    ></span>
-
-                    DHCP
-
-                </span>
-
-                <span
-                    class="badge"
-                    id="dhcp-status"
-                >
-                    --
-                </span>
-
-            </div>
-
-
-            <div class="service">
-
-                <span class="service-name">
-
-                    <span
-                        class="dot"
-                        id="dns-dot"
-                    ></span>
-
-                    DNS
-
-                </span>
-
-                <span
-                    class="badge"
-                    id="dns-status"
-                >
-                    --
-                </span>
-
-            </div>
-
-
-            <div class="service">
-
-                <span class="service-name">
-
-                    <span
-                        class="dot"
-                        id="nat-dot"
-                    ></span>
-
-                    NAT
-
-                </span>
-
-                <span
-                    class="badge"
-                    id="nat-status"
-                >
-                    --
-                </span>
-
-            </div>
-
-        </div>
-
-    </div>
-
 
     <!-- LAST 24 HOURS: COMBINED THROUGHPUT + PACKET LOSS -->
 
@@ -2531,47 +2284,6 @@ body {
     </div>
 
 
-    <!-- AD BLOCKING -->
-
-    <div
-        class="card"
-        style="margin-top:14px;"
-    >
-
-        <div class="section-title">
-
-            <h2>
-                Ad Blocking
-            </h2>
-
-            <span>
-
-                <span
-                    class="dot"
-                    id="adblock-dot"
-                ></span>
-
-                <span id="adblock-status">
-                    --
-                </span>
-
-            </span>
-
-        </div>
-
-        <div class="sub">
-
-            <strong id="adblock-count">
-                0
-            </strong>
-
-            domains blocked
-
-        </div>
-
-    </div>
-
-
     <div class="footer">
         Live data refreshes every 3 seconds
     </div>
@@ -2644,17 +2356,7 @@ function renderDevices(devices) {
         document.getElementById(
             "devices"
         );
-
-    const count =
-        document.getElementById(
-            "device-count"
-        );
-
-    count.textContent =
-        devices.length;
-
-
-    if (!devices.length) {
+if (!devices.length) {
 
         container.innerHTML =
             '<div class="sub" style="padding:18px;">No connected devices detected</div>';
@@ -2859,15 +2561,7 @@ async function refreshDashboard() {
             "wan-interface"
         ).textContent =
             wan.interface || "WAN";
-
-
-        document.getElementById(
-            "wan-state"
-        ).textContent =
-            wan.state || "unknown";
-
-
-        document.getElementById(
+document.getElementById(
             "lan-ip"
         ).textContent =
             lan.ip || "N/A";
@@ -2877,120 +2571,6 @@ async function refreshDashboard() {
             "lan-interface"
         ).textContent =
             lan.interface || "LAN";
-
-
-        document.getElementById(
-            "lan-state"
-        ).textContent =
-            lan.state || "unknown";
-
-
-        const internet =
-            Boolean(
-                network.internet
-            );
-
-        const internetElement =
-            document.getElementById(
-                "internet"
-            );
-
-
-        internetElement.textContent =
-            internet
-                ? "Online"
-                : "Offline";
-
-
-        internetElement.style.color =
-            internet
-                ? "#65d985"
-                : "#d96868";
-
-
-        document.getElementById(
-            "connections"
-        ).textContent =
-
-            network.connections !== null &&
-            network.connections !== undefined
-
-                ? network.connections
-                : "N/A";
-
-
-        document.getElementById(
-            "uptime"
-        ).textContent =
-            data.system?.uptime_text ||
-            "N/A";
-
-
-        const services =
-            data.services || {};
-
-
-        setService(
-            "dhcp",
-            services.dhcp?.enabled
-        );
-
-        setService(
-            "dns",
-            services.dns?.enabled
-        );
-
-        setService(
-            "nat",
-            services.nat?.enabled
-        );
-
-
-        const adblock =
-            data.adblock || {};
-
-
-        const adblockDot =
-            document.getElementById(
-                "adblock-dot"
-            );
-
-
-        const adblockStatus =
-            document.getElementById(
-                "adblock-status"
-            );
-
-
-        if (adblock.enabled) {
-
-            adblockDot.className =
-                "dot active";
-
-            adblockStatus.textContent =
-                "Active";
-
-        } else {
-
-            adblockDot.className =
-                "dot inactive";
-
-            adblockStatus.textContent =
-                "Inactive";
-
-        }
-
-
-        document.getElementById(
-            "adblock-count"
-        ).textContent =
-
-            adblock.blocked_domains !==
-            undefined
-
-                ? adblock.blocked_domains
-                : "0";
-
 
         renderDevices(
             data.devices || []
@@ -3002,40 +2582,13 @@ async function refreshDashboard() {
         ).textContent =
             "Updated " +
             new Date().toLocaleTimeString();
-
-
-        document.getElementById(
-            "gateway-dot"
-        ).className =
-            "dot active";
-
-
-        document.getElementById(
-            "gateway-status"
-        ).textContent =
-            "PiHarbor Online";
-
-
-    } catch (error) {
+} catch (error) {
 
         console.error(
             "Dashboard refresh failed:",
             error
         );
-
-
-        document.getElementById(
-            "gateway-dot"
-        ).className =
-            "dot inactive";
-
-
-        document.getElementById(
-            "gateway-status"
-        ).textContent =
-            "Dashboard Error";
-
-    }
+}
 
 }
 
