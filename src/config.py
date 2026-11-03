@@ -58,15 +58,6 @@ DEFAULT_CONFIG = {
         "lease_time": 86400,
         "reservations": [],
     },
-    "vpn": {
-        "enabled": False,
-        "interface": "wg0",
-        "config_file": "/etc/wireguard/wg0.conf",
-        "kill_switch": False,
-        "endpoint": "",
-        "allowed_ips": [],
-        "dns": [],
-    },
 }
 
 
@@ -209,7 +200,7 @@ def validate_config(config):
     """
     _require_dict(config)
 
-    required_sections = {"network", "firewall", "dns", "dhcp", "vpn"}
+    required_sections = {"network", "firewall", "dns", "dhcp"}
     missing = required_sections - config.keys()
     if missing:
         raise ValueError(
@@ -316,24 +307,6 @@ def validate_config(config):
     if start not in lan_net or end not in lan_net:
         raise ValueError("DHCP range must belong to network.lan_network")
 
-    # ---------------- VPN ----------------
-    vpn = config["vpn"]
-    _require_dict(vpn, "vpn")
-    _validate_bool(vpn.get("enabled"), "vpn.enabled")
-    _validate_bool(vpn.get("kill_switch"), "vpn.kill_switch")
-    _validate_list(vpn.get("allowed_ips"), "vpn.allowed_ips")
-    _validate_list(vpn.get("dns"), "vpn.dns")
-
-    _validate_interface(vpn.get("interface"), "vpn.interface")
-
-    for cidr in vpn["allowed_ips"]:
-        _validate_network(cidr, "vpn.allowed_ips")
-
-    for server in vpn["dns"]:
-        _validate_ip(server, "vpn.dns")
-
-    return True
-
 
 # ============================================================
 # Network Configuration
@@ -375,16 +348,6 @@ def get_dhcp_config(config):
     return deepcopy(config.get("dhcp", {}))
 
 
-# ============================================================
-# VPN Configuration
-# ============================================================
-
-
-def get_vpn_config(config):
-    _require_dict(config)
-    return deepcopy(config.get("vpn", {}))
-
-
 if __name__ == "__main__":
     try:
         config = load_config()
@@ -395,7 +358,6 @@ if __name__ == "__main__":
         print("DHCP:", get_dhcp_config(config))
         print("DNS:", get_dns_config(config))
         print("Firewall:", get_firewall_config(config))
-        print("VPN:", get_vpn_config(config))
     except (OSError, ValueError, yaml.YAMLError) as exc:
         print(f"Configuration error: {exc}")
         raise SystemExit(1)
