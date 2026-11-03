@@ -48,12 +48,6 @@ except ImportError:
 
 
 try:
-    import vpn as vpn_backend
-except ImportError:
-    vpn_backend = None
-
-
-try:
     import gateway_logger as gateway_logging
 except ImportError:
     gateway_logging = None
