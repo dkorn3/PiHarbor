@@ -298,13 +298,9 @@ def shutdown_gateway():
 # ============================================================
 # Web GUI
 # ============================================================
-
 def start_gui():
     """
-    Start the PiHarbor web GUI.
-
-    The GUI is intentionally started by main.py so main.py
-    remains the application entry point.
+    Start the PiHarbor web GUI on the LAN interface only.
     """
 
     if app is None:
@@ -312,16 +308,19 @@ def start_gui():
             "PiHarbor GUI could not be imported."
         )
 
-    logger.info("Starting PiHarbor web GUI.")
+    lan_ip = _gateway_config["network"]["lan_address"].split("/")[0]
+
+    logger.info(
+        "Starting PiHarbor web GUI on %s:80",
+        lan_ip,
+    )
 
     app.run(
-        host="0.0.0.0",
+        host=lan_ip,
         port=80,
         debug=False,
         threaded=True,
     )
-
-
 # ============================================================
 # Main
 # ============================================================
