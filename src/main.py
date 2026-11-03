@@ -1,4 +1,4 @@
-```python
+
 """
 PiHarbor main coordinator.
 
@@ -352,4 +352,4 @@ def main():
 
 if __name__ == "__main__":
     main()
-```
+
