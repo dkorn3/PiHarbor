@@ -195,7 +195,7 @@ def history_api():
         {
             "interface": _history_settings()[0],
             "interval": metrics_history.SAMPLE_INTERVAL,
-            "points": metrics_history.get_history(hours=4),
+            "points": metrics_history.get_history(hours=24),
         }
     )
 
