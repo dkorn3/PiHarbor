@@ -39,11 +39,3 @@ dhcp:
   dns_server: 192.168.50.1
   lease_time: 86400
   reservations: []
-vpn:
-  enabled: false
-  interface: wg0
-  config_file: /etc/wireguard/wg0.conf
-  kill_switch: false
-  endpoint: ''
-  allowed_ips: []
-  dns: []
