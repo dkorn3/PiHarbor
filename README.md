@@ -1,5 +1,8 @@
- <p align="center">
-  <img src="img/PiHarborLogo.png" alt="PiHarbor Logo" width="220" style="border-radius: 50%;">
+<p align="center">
+  <img src="img/PiHarborLogo.png"
+       alt="PiHarbor Logo"
+       width="220"
+       style="border-radius: 50%;">
 </p>
 
 <p align="center">
