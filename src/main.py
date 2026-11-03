@@ -13,11 +13,10 @@ Responsibilities:
     5. Configure firewall when enabled
     6. Configure DHCP when enabled
     7. Configure DNS
-    8. Start VPN when enabled
     9. Start the PiHarbor web GUI
    10. Shut down services cleanly
 """
-
+import logging
 import config
 import network
 import dns
@@ -26,13 +25,17 @@ import firewall
 import monitoring
 import nat
 
-try:
-    from network_gui import app
-except ImportError:
-    app = None
+from network_gui import app
 
 
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(message)s",
+)
+
+logger = logging.getLogger("PiHarbor")
 _running = False
+
 _gateway_config = None
 
 
@@ -74,13 +77,13 @@ def initialize_network():
     lan = gateway_config["network"]["lan_interface"]
     wan = gateway_config["network"]["wan_interface"]
 
-    app_logging.log_info(
+    logger.info(
         f"Configuring network: WAN={wan}, LAN={lan}"
     )
 
     network.configure_router()
 
-    app_logging.log_info(
+    logger.info(
         "Network configuration completed."
     )
 
@@ -105,7 +108,7 @@ def initialize_nat():
 
     if enabled:
 
-        app_logging.log_info(
+        logger.info(
             "Enabling NAT."
         )
 
@@ -113,7 +116,7 @@ def initialize_nat():
 
     else:
 
-        app_logging.log_info(
+        logger.info(
             "NAT is disabled."
         )
 
@@ -136,7 +139,7 @@ def initialize_firewall():
 
     if not enabled:
 
-        app_logging.log_info(
+        logger.info(
             "Firewall is disabled."
         )
 
@@ -154,7 +157,7 @@ def initialize_firewall():
         "wan_interface"
     ]
 
-    app_logging.log_info(
+    logger.info(
         "Initializing firewall."
     )
 
@@ -187,7 +190,7 @@ def initialize_dhcp():
 
     if not enabled:
 
-        app_logging.log_info(
+        logger.info(
             "DHCP is disabled."
         )
 
@@ -217,7 +220,7 @@ def initialize_dhcp():
         "/"
     )[0]
 
-    app_logging.log_info(
+    logger.info(
         "Initializing DHCP."
     )
 
@@ -244,7 +247,7 @@ def initialize_dns():
         [],
     )
 
-    app_logging.log_info(
+    logger.info(
         "Configuring DNS upstream servers."
     )
 
@@ -264,17 +267,15 @@ def initialize_gateway():
 
     global _running
 
-    app_logging.configure_logging()
-
-    app_logging.log_info(
+    logger.info(
         "================================="
     )
 
-    app_logging.log_info(
+    logger.info(
         "PiHarbor gateway initialization"
     )
 
-    app_logging.log_info(
+    logger.info(
         "================================="
     )
 
@@ -288,7 +289,7 @@ def initialize_gateway():
     
     _running = True
 
-    app_logging.log_info(
+    logger.info(
         "PiHarbor gateway initialization completed."
     )
 
@@ -318,35 +319,16 @@ def get_gateway_status():
 
 def shutdown_gateway():
     """
-    Stop gateway services that require shutdown.
+    Stop gateway services cleanly.
     """
 
     global _running
 
-    app_logging.log_info(
-        "PiHarbor gateway shutdown started."
-    )
-
-    if vpn is not None:
-
-        try:
-
-            vpn.stop()
-
-        except AttributeError:
-            pass
-
-        except Exception as exc:
-
-            app_logging.log_info(
-                f"VPN shutdown error: {exc}"
-            )
+    logger.info("PiHarbor gateway shutdown started.")
 
     _running = False
 
-    app_logging.log_info(
-        "PiHarbor gateway shutdown completed."
-    )
+    logger.info("PiHarbor gateway shutdown completed.")
 
     return True
 
@@ -369,7 +351,7 @@ def start_gui():
             "PiHarbor GUI could not be imported."
         )
 
-    app_logging.log_info(
+    logger.info(
         "Starting PiHarbor web GUI."
     )
 
@@ -410,13 +392,11 @@ def main():
             "\nPiHarbor shutting down..."
         )
 
-    except Exception as exc:
+  except Exception:
 
-        app_logging.log_info(
-            f"PiHarbor startup failed: {exc}"
-        )
+    logger.exception("PiHarbor startup failed.")
 
-        raise
+    raise
 
     finally:
 
