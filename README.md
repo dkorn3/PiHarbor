@@ -18,6 +18,8 @@ The main dashboard provides an overview of PiHarbor's router status, network int
   <img src="img/dashboardpiharbor.png" alt="PiHarbor Dashboard" width="1200">
 </p>
 
+
+
 ## Network Topology
 
 The network topology view visualizes how PiHarbor connects to the upstream router, manages network traffic, and provides connectivity to devices on the local network.
@@ -25,6 +27,8 @@ The network topology view visualizes how PiHarbor connects to the upstream route
 <p align="center">
   <img src="img/topologypiharbor.png" alt="PiHarbor Network Topology" width="1200">
 </p>
+
+
 
 
 
