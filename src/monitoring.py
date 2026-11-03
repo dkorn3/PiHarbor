@@ -650,139 +650,6 @@ def get_nat_status():
             ),
         }
 
-
-# ============================================================
-# VPN Monitoring
-# ============================================================
-
-def get_vpn_status():
-    """
-    Return the operational state of WireGuard.
-    """
-
-    result = _run_command(
-        [
-            "wg",
-            "show",
-            "wg0",
-        ]
-    )
-
-    if result is None:
-        return "unknown"
-
-    if result.returncode != 0:
-        return "inactive"
-
-    return "active"
-
-
-def get_vpn_handshake():
-    """
-    Return WireGuard peer handshake information.
-    """
-
-    result = _run_command(
-        [
-            "wg",
-            "show",
-            "wg0",
-            "latest-handshakes",
-        ]
-    )
-
-    if result is None:
-        return {}
-
-    if result.returncode != 0:
-        return {}
-
-    handshakes = {}
-
-    for line in result.stdout.splitlines():
-
-        parts = line.split()
-
-        if len(parts) != 2:
-            continue
-
-        public_key = parts[0]
-
-        try:
-            timestamp = int(parts[1])
-
-        except ValueError:
-            timestamp = None
-
-        handshakes[
-            public_key
-        ] = timestamp
-
-    return handshakes
-
-
-def get_vpn_statistics():
-    """
-    Return WireGuard transfer statistics.
-    """
-
-    result = _run_command(
-        [
-            "wg",
-            "show",
-            "wg0",
-            "transfer",
-        ]
-    )
-
-    if result is None:
-        return {}
-
-    if result.returncode != 0:
-        return {}
-
-    statistics = {}
-
-    for line in result.stdout.splitlines():
-
-        parts = line.split()
-
-        if len(parts) != 3:
-            continue
-
-        public_key = parts[0]
-
-        try:
-
-            received = int(
-                parts[1]
-            )
-
-            sent = int(
-                parts[2]
-            )
-
-        except ValueError:
-            continue
-
-        statistics[
-            public_key
-        ] = {
-            "bytes_received": received,
-            "bytes_sent": sent,
-            "bytes_received_human":
-                format_bytes(
-                    received
-                ),
-            "bytes_sent_human":
-                format_bytes(
-                    sent
-                ),
-        }
-
-    return statistics
-
-
 # ============================================================
 # DNS Monitoring
 # ============================================================
@@ -918,15 +785,6 @@ def get_dashboard_metrics(
 
         "nat": nat,
 
-        "vpn": {
-            "status":
-                get_vpn_status(),
-            "handshakes":
-                get_vpn_handshake(),
-            "statistics":
-                get_vpn_statistics(),
-        },
-
         "dns":
             get_dns_health(),
 
@@ -969,15 +827,6 @@ def get_gateway_health():
 
         "nat":
             get_nat_status(),
-
-        "vpn": {
-            "status":
-                get_vpn_status(),
-            "handshakes":
-                get_vpn_handshake(),
-            "statistics":
-                get_vpn_statistics(),
-        },
 
         "dns":
             get_dns_health(),
