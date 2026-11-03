@@ -1,5 +1,4 @@
-
-
+```python
 """
 PiHarbor main coordinator.
 
@@ -13,10 +12,12 @@ Responsibilities:
     5. Configure firewall when enabled
     6. Configure DHCP when enabled
     7. Configure DNS
-    9. Start the PiHarbor web GUI
-   10. Shut down services cleanly
+    8. Start the PiHarbor web GUI
+    9. Shut down services cleanly
 """
+
 import logging
+
 import config
 import network
 import dns
@@ -34,8 +35,8 @@ logging.basicConfig(
 )
 
 logger = logging.getLogger("PiHarbor")
-_running = False
 
+_running = False
 _gateway_config = None
 
 
@@ -52,9 +53,7 @@ def load_gateway_config():
 
     _gateway_config = config.load_config()
 
-    config.validate_config(
-        _gateway_config
-    )
+    config.validate_config(_gateway_config)
 
     return _gateway_config
 
@@ -65,11 +64,9 @@ def load_gateway_config():
 
 def initialize_network():
     """
-    Initialize the PiHarbor network
- configuration.
+    Initialize PiHarbor network configuration.
 
     The network module owns the actual interface configuration.
-    main.py coordinates the operation.
     """
 
     gateway_config = _gateway_config
@@ -78,14 +75,14 @@ def initialize_network():
     wan = gateway_config["network"]["wan_interface"]
 
     logger.info(
-        f"Configuring network: WAN={wan}, LAN={lan}"
+        "Configuring network: WAN=%s, LAN=%s",
+        wan,
+        lan,
     )
 
     network.configure_router()
 
-    logger.info(
-        "Network configuration completed."
-    )
+    logger.info("Network configuration completed.")
 
     return True
 
@@ -96,29 +93,21 @@ def initialize_network():
 
 def initialize_nat():
     """
-    Configure or disable NAT based on configuration.
+    Configure NAT when enabled.
     """
 
-    enabled = _gateway_config[
-        "network"
-    ].get(
+    enabled = _gateway_config["network"].get(
         "nat_enabled",
         False,
     )
 
-    if enabled:
+    if not enabled:
+        logger.info("NAT is disabled.")
+        return
 
-        logger.info(
-            "Enabling NAT."
-        )
+    logger.info("Enabling NAT.")
 
-        nat.configure_nat()
-
-    else:
-
-        logger.info(
-            "NAT is disabled."
-        )
+    nat.configure_nat()
 
 
 # ============================================================
@@ -130,46 +119,22 @@ def initialize_firewall():
     Configure the PiHarbor firewall.
     """
 
-    enabled = _gateway_config[
-        "firewall"
-    ].get(
+    enabled = _gateway_config["firewall"].get(
         "enabled",
         False,
     )
 
     if not enabled:
-
-        logger.info(
-            "Firewall is disabled."
-        )
-
+        logger.info("Firewall is disabled.")
         return
 
-    lan = _gateway_config[
-        "network"
-    ][
-        "lan_interface"
-    ]
+    lan = _gateway_config["network"]["lan_interface"]
+    wan = _gateway_config["network"]["wan_interface"]
 
-    wan = _gateway_config[
-        "network"
-    ][
-        "wan_interface"
-    ]
+    logger.info("Initializing firewall.")
 
-    logger.info(
-        "Initializing firewall."
-    )
-
-    firewall.save_ruleset(
-        lan,
-        wan,
-    )
-
-    firewall.apply_firewall_rules(
-        lan,
-        wan,
-    )
+    firewall.save_ruleset(lan, wan)
+    firewall.apply_firewall_rules(lan, wan)
 
 
 # ============================================================
@@ -181,52 +146,28 @@ def initialize_dhcp():
     Configure DHCP for the PiHarbor LAN.
     """
 
-    enabled = _gateway_config[
-        "dhcp"
-    ].get(
+    enabled = _gateway_config["dhcp"].get(
         "enabled",
         False,
     )
 
     if not enabled:
-
-        logger.info(
-            "DHCP is disabled."
-        )
-
+        logger.info("DHCP is disabled.")
         return
 
-    dhcp_config = dict(
-        _gateway_config[
-            "dhcp"
-        ]
+    dhcp_config = dict(_gateway_config["dhcp"])
+
+    dhcp_config["interface"] = (
+        _gateway_config["network"]["lan_interface"]
     )
 
-    dhcp_config[
-        "interface"
-    ] = _gateway_config[
-        "network"
-    ][
-        "lan_interface"
-    ]
-
-    dhcp_config[
-        "address"
-    ] = _gateway_config[
-        "network"
-    ][
-        "lan_address"
-    ].split(
-        "/"
-    )[0]
-
-    logger.info(
-        "Initializing DHCP."
+    dhcp_config["address"] = (
+        _gateway_config["network"]["lan_address"].split("/")[0]
     )
 
-    dhcp.configure_dhcp(
-        dhcp_config
-    )
+    logger.info("Initializing DHCP.")
+
+    dhcp.configure_dhcp(dhcp_config)
 
 
 # ============================================================
@@ -238,22 +179,16 @@ def initialize_dns():
     Configure PiHarbor DNS upstream servers.
     """
 
-    dns_config = _gateway_config[
-        "dns"
-    ]
+    dns_config = _gateway_config["dns"]
 
     upstream_servers = dns_config.get(
         "upstream_servers",
         [],
     )
 
-    logger.info(
-        "Configuring DNS upstream servers."
-    )
+    logger.info("Configuring DNS upstream servers.")
 
-    dns.set_upstream_servers(
-        upstream_servers
-    )
+    dns.set_upstream_servers(upstream_servers)
 
 
 # ============================================================
@@ -267,17 +202,9 @@ def initialize_gateway():
 
     global _running
 
-    logger.info(
-        "================================="
-    )
-
-    logger.info(
-        "PiHarbor gateway initialization"
-    )
-
-    logger.info(
-        "================================="
-    )
+    logger.info("=================================")
+    logger.info("PiHarbor gateway initialization")
+    logger.info("=================================")
 
     load_gateway_config()
 
@@ -286,12 +213,10 @@ def initialize_gateway():
     initialize_firewall()
     initialize_dhcp()
     initialize_dns()
-    
+
     _running = True
 
-    logger.info(
-        "PiHarbor gateway initialization completed."
-    )
+    logger.info("PiHarbor gateway initialization completed.")
 
     return True
 
@@ -303,13 +228,47 @@ def initialize_gateway():
 def get_gateway_status():
     """
     Return the current PiHarbor gateway status.
+
+    Only expose configuration fields needed for status reporting.
     """
+
+    if _gateway_config is None:
+        safe_config = None
+    else:
+        safe_config = {
+            "network": {
+                "lan_interface": _gateway_config["network"].get(
+                    "lan_interface"
+                ),
+                "wan_interface": _gateway_config["network"].get(
+                    "wan_interface"
+                ),
+                "lan_address": _gateway_config["network"].get(
+                    "lan_address"
+                ),
+                "nat_enabled": _gateway_config["network"].get(
+                    "nat_enabled",
+                    False,
+                ),
+            },
+            "firewall": {
+                "enabled": _gateway_config["firewall"].get(
+                    "enabled",
+                    False,
+                ),
+            },
+            "dhcp": {
+                "enabled": _gateway_config["dhcp"].get(
+                    "enabled",
+                    False,
+                ),
+            },
+        }
 
     return {
         "running": _running,
-        "config": _gateway_config,
-        "health":
-            monitoring.get_gateway_health(),
+        "config": safe_config,
+        "health": monitoring.get_gateway_health(),
     }
 
 
@@ -319,7 +278,10 @@ def get_gateway_status():
 
 def shutdown_gateway():
     """
-    Stop gateway services cleanly.
+    Mark the gateway as stopped.
+
+    Actual service cleanup must be implemented by the individual
+    modules before calling their respective shutdown functions here.
     """
 
     global _running
@@ -341,19 +303,16 @@ def start_gui():
     """
     Start the PiHarbor web GUI.
 
-    The GUI is intentionally started by main.py
-    so main.py remains the application entry point.
+    The GUI is intentionally started by main.py so main.py
+    remains the application entry point.
     """
 
     if app is None:
-
         raise RuntimeError(
             "PiHarbor GUI could not be imported."
         )
 
-    logger.info(
-        "Starting PiHarbor web GUI."
-    )
+    logger.info("Starting PiHarbor web GUI.")
 
     app.run(
         host="0.0.0.0",
@@ -373,36 +332,24 @@ def main():
     """
 
     try:
-
         initialize_gateway()
 
-        print(
-            "PiHarbor gateway initialized."
-        )
-
-        print(
-            "PiHarbor GUI available on port 80."
-        )
+        print("PiHarbor gateway initialized.")
+        print("PiHarbor GUI available on port 80.")
 
         start_gui()
 
     except KeyboardInterrupt:
+        print("\nPiHarbor shutting down...")
 
-        print(
-            "\nPiHarbor shutting down..."
-        )
-
-  except Exception:
-
-    logger.exception("PiHarbor startup failed.")
-
-    raise
+    except Exception:
+        logger.exception("PiHarbor startup failed.")
+        raise
 
     finally:
-
         shutdown_gateway()
 
 
 if __name__ == "__main__":
     main()
-
+```
