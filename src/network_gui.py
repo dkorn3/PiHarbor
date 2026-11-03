@@ -1270,13 +1270,6 @@ def get_service_statuses():
                 get_firewall_enabled(),
             "label": "Firewall",
         },
-
-        "vpn": {
-            "enabled":
-                monitoring.get_vpn_status()
-                == "active",
-            "label": "VPN",
-        },
     }
 
 
@@ -1550,11 +1543,6 @@ def get_dashboard_data():
 
         "services":
             get_service_statuses(),
-
-        "vpn": metrics.get(
-            "vpn",
-            {},
-        ),
 
         "dns": metrics.get(
             "dns",
@@ -5581,20 +5569,6 @@ def firewall_page():
         "Firewall",
         "PiHarbor nftables firewall controls."
     )
-
-
-# ============================================================
-# VPN
-# ============================================================
-
-@app.route("/vpn")
-def vpn_page():
-
-    return simple_page(
-        "VPN",
-        "WireGuard VPN configuration and status."
-    )
-
 
 # ============================================================
 # Monitoring
