@@ -8,6 +8,17 @@
 
 ---
 
+
+
+### Packet Flow: Internet to Client
+
+The following diagram illustrates how an incoming response packet travels through PiHarbor, including Linux routing, nftables firewall rules, connection tracking, NAT, and wireless delivery.
+
+ <p align="center">
+  <img src="Packet Flow Through PiHarbor.png" alt="Packet FLow" width="220">
+</p>
+
+
 ## 1. Hardware Requirements
 
 - Raspberry Pi 3 Model B
