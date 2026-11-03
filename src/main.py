@@ -254,45 +254,6 @@ def initialize_dns():
 
 
 # ============================================================
-# VPN
-# ============================================================
-
-def initialize_vpn():
-    """
-    Start the VPN when enabled.
-    """
-
-    if vpn is None:
-
-        app_logging.log_info(
-            "VPN module is unavailable."
-        )
-
-        return
-
-    enabled = _gateway_config[
-        "vpn"
-    ].get(
-        "enabled",
-        False,
-    )
-
-    if not enabled:
-
-        app_logging.log_info(
-            "VPN is disabled."
-        )
-
-        return
-
-    app_logging.log_info(
-        "Starting VPN."
-    )
-
-    vpn.start()
-
-
-# ============================================================
 # Gateway Initialization
 # ============================================================
 
@@ -324,8 +285,7 @@ def initialize_gateway():
     initialize_firewall()
     initialize_dhcp()
     initialize_dns()
-    initialize_vpn()
-
+    
     _running = True
 
     app_logging.log_info(
