@@ -25,12 +25,6 @@ import dhcp
 import firewall
 import monitoring
 import nat
-import app_logging
-
-try:
-    import vpn
-except ImportError:
-    vpn = None
 
 try:
     from network_gui import app
