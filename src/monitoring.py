@@ -102,11 +102,7 @@ def get_cpu_usage():
 
 
 def get_cpu_frequency():
-    """
-    Return current CPU frequency in MHz and GHz.
-
-    Uses psutil first, then Linux sysfs.
-    """
+    """Return current CPU frequency in MHz and GHz."""
 
     if psutil is not None:
         try:
@@ -372,14 +368,12 @@ def get_interface_ip(interface):
     return None
 
 
-def get_interface_link_capacity(interface):
-    """
-    Detect negotiated interface link speed in Mbps.
+# ============================================================
+# Ethernet Link Capacity
+# ============================================================
 
-    Ethernet uses sysfs or ethtool.
-    Wi-Fi may return unavailable if no reliable
-    capacity is exposed by the driver.
-    """
+def get_ethernet_link_capacity(interface):
+    """Detect negotiated Ethernet speed in Mbps."""
 
     path = f"/sys/class/net/{interface}/speed"
 
@@ -401,22 +395,25 @@ def get_interface_link_capacity(interface):
 
     if result is not None:
         for line in result.stdout.splitlines():
-            if "Speed:" in line:
-                value = line.split("Speed:")[-1].strip()
 
-                if value.lower().endswith("mb/s"):
-                    try:
-                        speed = int(value[:-4].strip())
+            if "Speed:" not in line:
+                continue
 
-                        if speed > 0:
-                            return {
-                                "mbps": speed,
-                                "gbps": round(speed / 1000, 2),
-                                "source": "ethtool",
-                            }
+            value = line.split("Speed:")[-1].strip()
 
-                    except ValueError:
-                        pass
+            if value.lower().endswith("mb/s"):
+                try:
+                    speed = int(value[:-4].strip())
+
+                    if speed > 0:
+                        return {
+                            "mbps": speed,
+                            "gbps": round(speed / 1000, 2),
+                            "source": "ethtool",
+                        }
+
+                except ValueError:
+                    pass
 
     return {
         "mbps": None,
@@ -425,12 +422,143 @@ def get_interface_link_capacity(interface):
     }
 
 
+# ============================================================
+# Wi-Fi Link Capacity
+# ============================================================
+
+def get_wifi_clients(interface):
+    """
+    Return connected Wi-Fi client information.
+
+    Uses iw station dump.
+    TX/RX bitrate represents negotiated PHY rates
+    for individual clients, not aggregate AP capacity.
+    """
+
+    result = _run_command([
+        "iw", "dev", interface, "station", "dump"
+    ])
+
+    if result is None or result.returncode != 0:
+        return []
+
+    clients = []
+    current = None
+
+    for line in result.stdout.splitlines():
+
+        line = line.strip()
+
+        if line.startswith("Station "):
+
+            if current:
+                clients.append(current)
+
+            parts = line.split()
+
+            current = {
+                "mac": parts[1] if len(parts) > 1 else "unknown",
+                "tx_bitrate_mbps": None,
+                "rx_bitrate_mbps": None,
+            }
+
+        elif current and "tx bitrate:" in line:
+
+            try:
+                value = line.split("tx bitrate:")[-1].strip()
+                current["tx_bitrate_mbps"] = float(value.split()[0])
+
+            except (ValueError, IndexError):
+                pass
+
+        elif current and "rx bitrate:" in line:
+
+            try:
+                value = line.split("rx bitrate:")[-1].strip()
+                current["rx_bitrate_mbps"] = float(value.split()[0])
+
+            except (ValueError, IndexError):
+                pass
+
+    if current:
+        clients.append(current)
+
+    return clients
+
+
+def get_wifi_link_capacity(interface):
+    """
+    Return indicative Wi-Fi client bitrate information.
+
+    Highest observed client bitrate is NOT the total
+    wireless AP capacity.
+    """
+
+    clients = get_wifi_clients(interface)
+
+    rates = []
+
+    for client in clients:
+
+        tx = client["tx_bitrate_mbps"]
+        rx = client["rx_bitrate_mbps"]
+
+        if tx is not None:
+            rates.append(tx)
+
+        if rx is not None:
+            rates.append(rx)
+
+    highest_rate = max(rates) if rates else None
+
+    return {
+        "mbps": round(highest_rate, 1) if highest_rate else None,
+        "gbps": (
+            round(highest_rate / 1000, 2)
+            if highest_rate else None
+        ),
+        "source": "iw_station_clients" if highest_rate else "unavailable",
+        "clients_connected": len(clients),
+        "clients": clients,
+        "capacity_type": "highest_observed_client_bitrate",
+    }
+
+
+def get_interface_link_capacity(interface):
+    """
+    Detect interface link capacity.
+
+    Wi-Fi interfaces use client bitrate detection.
+    Other interfaces use Ethernet negotiation.
+    """
+
+    try:
+        wireless_path = f"/sys/class/net/{interface}/wireless"
+
+        if os.path.exists(wireless_path):
+            return get_wifi_link_capacity(interface)
+
+        return get_ethernet_link_capacity(interface)
+
+    except OSError:
+        return {
+            "mbps": None,
+            "gbps": None,
+            "source": "unavailable",
+        }
+
+
+# ============================================================
+# Network Throughput
+# ============================================================
+
 def get_interface_throughput(interface):
     """
     Calculate real-time RX/TX throughput.
 
-    Returns Mbps and utilization relative to
-    the negotiated interface link capacity.
+    Uses interface counters and elapsed time.
+    Utilization is calculated only when a reliable
+    link capacity is available.
     """
 
     empty_result = {
@@ -460,7 +588,6 @@ def get_interface_throughput(interface):
             "time": now,
         }
 
-        # First reading establishes baseline.
         if previous is None:
             return empty_result
 
@@ -479,18 +606,14 @@ def get_interface_throughput(interface):
             current.bytes_sent - previous["tx"]
         )
 
-        rx_mbps = (
-            rx_bytes * 8
-        ) / elapsed / 1_000_000
-
-        tx_mbps = (
-            tx_bytes * 8
-        ) / elapsed / 1_000_000
+        rx_mbps = rx_bytes * 8 / elapsed / 1_000_000
+        tx_mbps = tx_bytes * 8 / elapsed / 1_000_000
 
         capacity = get_interface_link_capacity(interface)
-        link_speed = capacity["mbps"]
+        link_speed = capacity.get("mbps")
 
         if link_speed:
+
             rx_usage = min(
                 100.0,
                 (rx_mbps / link_speed) * 100
@@ -522,23 +645,25 @@ def get_interface_throughput(interface):
         return empty_result
 
 
-def get_interface_health(interface):
-    """Return a complete status snapshot for one interface."""
+# ============================================================
+# Complete Interface Health
+# ============================================================
 
-    stats = get_interface_stats(interface)
+def get_interface_health(interface):
+    """Return complete status for one network interface."""
 
     return {
         "interface": interface,
         "state": get_interface_state(interface),
         "ip": get_interface_ip(interface),
-        "stats": stats,
+        "stats": get_interface_stats(interface),
         "link_capacity": get_interface_link_capacity(interface),
         "throughput": get_interface_throughput(interface),
     }
 
 
 def get_connection_count():
-    """Return the number of active TCP connections."""
+    """Return active TCP connection count."""
 
     if psutil is None:
         return None
@@ -552,7 +677,7 @@ def get_connection_count():
 
 
 def get_default_route():
-    """Return the Linux default route."""
+    """Return Linux default route."""
 
     result = _run_command([
         "ip", "route", "show", "default"
@@ -585,7 +710,7 @@ def check_internet():
 # ============================================================
 
 def get_service_status(service):
-    """Return the systemd state of a service."""
+    """Return systemd service state."""
 
     result = _run_command([
         "systemctl", "is-active", service
@@ -620,7 +745,7 @@ def get_gateway_services_status():
 # ============================================================
 
 def get_nat_status():
-    """Return the current PiHarbor NAT state."""
+    """Return current PiHarbor NAT state."""
 
     try:
         import nat
@@ -711,9 +836,6 @@ def get_dashboard_metrics(
     wan = get_interface_health(wan_interface)
     lan = get_interface_health(lan_interface)
 
-    services = get_gateway_services_status()
-    nat = get_nat_status()
-
     return {
         "system": get_system_status(),
 
@@ -725,8 +847,8 @@ def get_dashboard_metrics(
             "connections": get_connection_count(),
         },
 
-        "services": services,
-        "nat": nat,
+        "services": get_gateway_services_status(),
+        "nat": get_nat_status(),
         "dns": get_dns_health(),
         "dhcp": get_dhcp_health(),
         "firewall": get_firewall_health(),
@@ -740,9 +862,9 @@ def get_dashboard_metrics(
 
 def get_gateway_health():
     """
-    Return a combined health snapshot of the PiHarbor gateway.
+    Return combined PiHarbor gateway health.
 
-    Preserves the original interface used by the existing GUI.
+    Preserves the original interface used by the GUI.
     """
 
     return {
@@ -794,20 +916,22 @@ if __name__ == "__main__":
 
     dashboard = get_dashboard_metrics()
 
-    for interface_name in ("wan", "lan"):
-        interface = dashboard["network"][interface_name]
+    for name in ("wan", "lan"):
 
-        print(f"\n  {interface_name.upper()}:")
+        interface = dashboard["network"][name]
 
+        print(f"\n  {name.upper()}:")
         print(f"    Interface: {interface['interface']}")
         print(f"    State: {interface['state']}")
         print(f"    IP: {interface['ip']}")
         print(f"    Link capacity: {interface['link_capacity']}")
         print(f"    Throughput: {interface['throughput']}")
-        print(f"    Statistics: {interface['stats']}")
 
-    print(f"\n  Internet: {dashboard['network']['internet']}")
-    print(f"  Connections: {dashboard['network']['connections']}")
+        if name == "lan":
+            print(
+                f"    Wi-Fi clients: "
+                f"{interface['link_capacity'].get('clients', [])}"
+            )
 
     print("\nServices:")
 
