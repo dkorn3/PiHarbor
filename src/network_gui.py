@@ -422,6 +422,168 @@ def format_lease_remaining(expiry):
 
 
 # ============================================================
+# Device Health / Interface Link Metrics
+# ============================================================
+
+def read_int_file(path):
+    try:
+        with open(path, "r", encoding="utf-8") as file:
+            return int(file.read().strip())
+    except (OSError, ValueError):
+        return None
+
+
+def get_interface_link_metrics(interface):
+    """Return negotiated link details and interface error counters."""
+    base = os.path.join("/sys/class/net", interface)
+    if not os.path.exists(base):
+        return {
+            "interface": interface,
+            "state": "Unavailable",
+            "speed_mbps": None,
+            "duplex": "N/A",
+            "tx_bitrate": None,
+            "rx_bitrate": None,
+            "clients": 0,
+            "rx_errors": None,
+            "tx_errors": None,
+            "rx_dropped": None,
+            "tx_dropped": None,
+        }
+
+    state_path = os.path.join(base, "operstate")
+    try:
+        with open(state_path, "r", encoding="utf-8") as file:
+            state = file.read().strip().capitalize()
+    except OSError:
+        state = "Unknown"
+
+    speed = read_int_file(os.path.join(base, "speed"))
+    if speed is not None and speed < 0:
+        speed = None
+
+    try:
+        with open(os.path.join(base, "duplex"), "r", encoding="utf-8") as file:
+            duplex = file.read().strip().capitalize()
+    except OSError:
+        duplex = "N/A"
+
+    # Wi-Fi interfaces in AP mode have per-client PHY rates, not one
+    # meaningful negotiated rate for the entire interface.
+    tx_rates = []
+    rx_rates = []
+    client_count = 0
+    if command_exists("iw"):
+        result = run_command(["iw", "dev", interface, "station", "dump"], timeout=4)
+        if result is not None:
+            current = {}
+            for line in result.stdout.splitlines():
+                stripped = line.strip()
+                if stripped.startswith("Station "):
+                    if current:
+                        tx_rates.append(current.get("tx"))
+                        rx_rates.append(current.get("rx"))
+                    current = {}
+                    client_count += 1
+                elif stripped.lower().startswith("tx bitrate:"):
+                    current["tx"] = stripped.split(":", 1)[1].strip()
+                elif stripped.lower().startswith("rx bitrate:"):
+                    current["rx"] = stripped.split(":", 1)[1].strip()
+            if current:
+                tx_rates.append(current.get("tx"))
+                rx_rates.append(current.get("rx"))
+
+    stats = {}
+    for key in ("rx_errors", "tx_errors", "rx_dropped", "tx_dropped"):
+        stats[key] = read_int_file(os.path.join(base, "statistics", key))
+
+    return {
+        "interface": interface,
+        "state": state,
+        "speed_mbps": speed,
+        "duplex": duplex,
+        "tx_bitrate": [rate for rate in tx_rates if rate],
+        "rx_bitrate": [rate for rate in rx_rates if rate],
+        "clients": client_count,
+        **stats,
+    }
+
+
+def get_device_health_details():
+    """Collect lightweight Raspberry Pi diagnostics without extra packages."""
+    network = get_network_config()
+    wan = network.get("wan_interface", "eth0")
+    lan = network.get("lan_interface", "wlan0")
+
+    try:
+        with open("/proc/loadavg", "r", encoding="utf-8") as file:
+            load = file.read().split()
+            load_average = load[:3]
+    except (OSError, IndexError):
+        load_average = []
+
+    cpu_frequency = read_int_file(
+        "/sys/devices/system/cpu/cpu0/cpufreq/scaling_cur_freq"
+    )
+    if cpu_frequency is not None:
+        cpu_frequency = round(cpu_frequency / 1000)
+
+    meminfo = {}
+    try:
+        with open("/proc/meminfo", "r", encoding="utf-8") as file:
+            for line in file:
+                key, value = line.split(":", 1)
+                meminfo[key] = int(value.strip().split()[0])
+    except (OSError, ValueError, IndexError):
+        pass
+
+    swap_total = meminfo.get("SwapTotal", 0)
+    swap_free = meminfo.get("SwapFree", 0)
+    swap_used_pct = (
+        round((swap_total - swap_free) / swap_total * 100, 1)
+        if swap_total else 0
+    )
+
+    throttling = "Unavailable"
+    throttling_raw = None
+    if command_exists("vcgencmd"):
+        result = run_command(["vcgencmd", "get_throttled"], timeout=3)
+        if result is not None:
+            throttling_raw = result.stdout.strip()
+            match = re.search(r"0x([0-9a-fA-F]+)", throttling_raw)
+            if match:
+                flags = int(match.group(1), 16)
+                throttling = "No flags" if flags == 0 else "Warning flags present"
+
+    failed_services = None
+    if command_exists("systemctl"):
+        result = run_command(
+            ["systemctl", "--failed", "--no-legend", "--plain"], timeout=5
+        )
+        if result is not None:
+            failed_services = len([
+                line for line in result.stdout.splitlines() if line.strip()
+            ])
+
+    return {
+        "cpu_frequency_mhz": cpu_frequency,
+        "load_average": load_average,
+        "swap_used_percent": swap_used_pct,
+        "swap_total_kb": swap_total,
+        "throttling": throttling,
+        "throttling_raw": throttling_raw,
+        "failed_services": failed_services,
+        "wan_link": get_interface_link_metrics(wan),
+        "lan_link": get_interface_link_metrics(lan),
+    }
+
+
+@app.route("/api/health-details")
+def health_details_api():
+    return jsonify(get_device_health_details())
+
+
+# ============================================================
 # Device Identification
 # ============================================================
 
@@ -4069,533 +4231,333 @@ def device_health_page():
     return render_template_string(
         """
         <!DOCTYPE html>
-        <html>
-
+        <html lang="en">
         <head>
-
-        <meta charset="UTF-8">
-
-        <meta
-            name="viewport"
-            content="width=device-width, initial-scale=1.0"
-        >
-
-        <title>
-            Device Health - PiHarbor
-        </title>
-
-        <style>
-
-        * {
-            box-sizing: border-box;
-        }
-
-        body {
-            margin: 0;
-            background: #0b0e12;
-            color: #f3f4f6;
-            font-family:
-                -apple-system,
-                BlinkMacSystemFont,
-                "Segoe UI",
-                sans-serif;
-        }
-
-        .sidebar {
-            position: fixed;
-            left: 0;
-            top: 0;
-            bottom: 0;
-            width: 220px;
-            background: #12161c;
-            border-right: 1px solid #252b34;
-            padding: 24px 16px;
-        }
-
-        .logo {
-            font-size: 24px;
-            font-weight: 700;
-            margin-bottom: 30px;
-        }
-
-        .logo span {
-            display: block;
-            margin-top: 4px;
-            color: #7f8793;
-            font-size: 13px;
-        }
-
-        .nav a {
-            display: block;
-            padding: 11px 13px;
-            margin-bottom: 5px;
-            border-radius: 8px;
-            color: #aeb5bf;
-            text-decoration: none;
-        }
-
-        .nav a:hover,
-        .nav a.active {
-            background: #222831;
-            color: #fff;
-        }
-
-        .main {
-            margin-left: 220px;
-            padding: 30px;
-            max-width: 1500px;
-        }
-
-        .header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 24px;
-        }
-
-        .header h1 {
-            margin: 0;
-            font-size: 28px;
-        }
-
-        .header-sub {
-            color: #7f8793;
-            font-size: 13px;
-            margin-top: 5px;
-        }
-
-        .card {
-            background: #12161c;
-            border: 1px solid #252b34;
-            border-radius: 12px;
-            padding: 18px;
-        }
-
-        .grid {
-            display: grid;
-            grid-template-columns:
-                repeat(4, minmax(180px, 1fr));
-            gap: 14px;
-        }
-
-        .card h3 {
-            margin: 0 0 8px;
-            color: #8f98a5;
-            font-size: 13px;
-            font-weight: 500;
-        }
-
-        .metric {
-            font-size: 27px;
-            font-weight: 700;
-            letter-spacing: -0.4px;
-        }
-
-        .sub {
-            color: #737c89;
-            font-size: 12px;
-            margin-top: 5px;
-        }
-
-        .progress {
-            height: 5px;
-            background: #252b34;
-            border-radius: 99px;
-            overflow: hidden;
-            margin-top: 12px;
-        }
-
-        .progress > div {
-            height: 100%;
-            width: 0;
-            background: #7aa2f7;
-            transition: width .25s ease;
-        }
-
-        .health-status {
-            margin-top: 14px;
-            padding: 14px 16px;
-            background: #151a21;
-            border: 1px solid #252b34;
-            border-radius: 10px;
-            color: #8f98a5;
-            font-size: 13px;
-        }
-
-        @media (max-width: 1050px) {
-
-            .grid {
-                grid-template-columns:
-                    repeat(2, 1fr);
-            }
-
-        }
-
-        
-</style>
-
-        </head>
-
-        <body>
-
-        <div class="sidebar">
-
-            <div class="logo">
-
-                PiHarbor
-
-                <span>
-                    Network Gateway
-                </span>
-
-            </div>
-
-            <div class="nav">
-
-                <a href="/">
-                    Dashboard
-                </a>
-
-                <a
-                    href="/health"
-                    class="active"
-                >
-                    Device Health
-                </a>
-
-                <a href="/topology">
-                    Topology
-                </a>
-
-                <a href="/dns">
-                    DNS
-                </a>
-
-            </div>
-
-        </div>
-
-
-        <div class="main">
-
-            <div class="header">
-
-                <div>
-
-                    <h1>
-                        Device Health
-                    </h1>
-
-                    <div class="header-sub">
-                        Raspberry Pi system health
-                        and resources
-                    </div>
-
-                </div>
-
-            </div>
-
-
-            <div class="grid">
-
-                <div class="card">
-
-                    <h3>
-                        CPU Usage
-                    </h3>
-
-                    <div
-                        class="metric"
-                        id="cpu"
-                    >
-                        --
-                    </div>
-
-                    <div class="progress">
-
-                        <div id="cpu-bar"></div>
-
-                    </div>
-
-                    <div class="sub">
-                        Processor utilization
-                    </div>
-
-                </div>
-
-
-                <div class="card">
-
-                    <h3>
-                        Memory
-                    </h3>
-
-                    <div
-                        class="metric"
-                        id="memory"
-                    >
-                        --
-                    </div>
-
-                    <div class="progress">
-
-                        <div id="memory-bar"></div>
-
-                    </div>
-
-                    <div class="sub">
-                        RAM utilization
-                    </div>
-
-                </div>
-
-
-                <div class="card">
-
-                    <h3>
-                        Temperature
-                    </h3>
-
-                    <div
-                        class="metric"
-                        id="temperature"
-                    >
-                        --
-                    </div>
-
-                    <div class="sub">
-                        CPU temperature
-                    </div>
-
-                </div>
-
-
-                <div class="card">
-
-                    <h3>
-                        Storage
-                    </h3>
-
-                    <div
-                        class="metric"
-                        id="storage"
-                    >
-                        --
-                    </div>
-
-                    <div class="progress">
-
-                        <div id="storage-bar"></div>
-
-                    </div>
-
-                    <div class="sub">
-                        Root filesystem usage
-                    </div>
-
-                </div>
-
-            </div>
-
-
-            <div class="health-status">
-
-                Uptime:
-
-                <strong id="uptime">
-                    --
-                </strong>
-
-                <span style="margin-left:20px;">
-
-                    Last updated:
-
-                    <strong id="updated">
-                        --
-                    </strong>
-
-                </span>
-
-            </div>
-
-        </div>
-
-
-        <script>
-
-        function setProgress(id, value) {
-
-            const bar =
-                document.getElementById(id);
-
-            if (!bar) {
-                return;
-            }
-
-            const numeric =
-                Number(value);
-
-            if (!Number.isFinite(numeric)) {
-
-                bar.style.width =
-                    "0%";
-
-                return;
-
-            }
-
-            bar.style.width =
-                Math.max(
-                    0,
-                    Math.min(
-                        100,
-                        numeric
-                    )
-                ) + "%";
-
-        }
-
-
-        async function refreshHealth() {
-
-            try {
-
-                const response =
-                    await fetch(
-                        "/api/dashboard",
-                        {
-                            cache: "no-store"
-                        }
-                    );
-
-
-                if (!response.ok) {
-
-                    throw new Error(
-                        "Health request failed"
-                    );
-
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>Device Health - PiHarbor</title>
+            <style>
+                * { box-sizing: border-box; }
+                :root {
+                    color-scheme: dark;
+                    --bg: #0b0e12; --panel: #121821; --panel2: #151d28;
+                    --border: #263241; --muted: #8793a3; --text: #eef3f8;
+                    --blue: #78b7ff; --green: #62d995; --amber: #f4bd70;
+                    --red: #ef7777; --purple: #b9a1ff;
                 }
+                body {
+                    margin: 0; background: var(--bg); color: var(--text);
+                    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+                }
+                .sidebar {
+                    position: fixed; inset: 0 auto 0 0; width: 220px;
+                    padding: 22px 16px; background: #111720;
+                    border-right: 1px solid var(--border);
+                }
+                .logo { margin-bottom: 28px; text-align: center; }
+                .logo img {
+                    display: block; width: 138px; height: 138px;
+                    object-fit: cover; border-radius: 50%; margin: 0 auto 8px;
+                }
+                .logo-text { display: none; font-size: 23px; font-weight: 750; }
+                .nav a {
+                    display: block; padding: 11px 13px; margin: 4px 0;
+                    border-radius: 9px; color: #aeb9c7; text-decoration: none;
+                    font-size: 14px; transition: .15s ease;
+                }
+                .nav a:hover, .nav a.active { background: #202b39; color: #fff; }
+                .main { margin-left: 220px; padding: 32px; max-width: 1650px; }
+                .page-header {
+                    display: flex; justify-content: space-between; align-items: flex-start;
+                    gap: 20px; margin-bottom: 25px;
+                }
+                h1 { margin: 0; font-size: 29px; letter-spacing: -.7px; }
+                .subtitle { color: var(--muted); margin-top: 7px; font-size: 13px; }
+                .refresh-pill {
+                    padding: 8px 12px; border: 1px solid var(--border);
+                    border-radius: 999px; background: #121821; color: #aab6c5;
+                    font-size: 12px; white-space: nowrap;
+                }
+                .live-dot {
+                    display: inline-block; width: 7px; height: 7px; border-radius: 50%;
+                    background: var(--green); margin-right: 7px;
+                    box-shadow: 0 0 9px #62d99588;
+                }
+                .section { margin-top: 25px; }
+                .section-heading {
+                    display: flex; align-items: baseline; justify-content: space-between;
+                    gap: 12px; margin: 0 0 12px;
+                }
+                .section-heading h2 { margin: 0; font-size: 16px; letter-spacing: -.2px; }
+                .section-heading span { color: var(--muted); font-size: 11px; }
+                .grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 13px; }
+                .grid.three { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+                .card {
+                    min-width: 0; padding: 17px; border-radius: 13px;
+                    background: linear-gradient(145deg, var(--panel2), var(--panel));
+                    border: 1px solid var(--border);
+                }
+                .card-label {
+                    color: #9aa7b7; font-size: 11px; font-weight: 650;
+                    letter-spacing: .075em; text-transform: uppercase;
+                }
+                .metric {
+                    margin-top: 9px; font-size: 29px; font-weight: 720;
+                    letter-spacing: -.8px; line-height: 1.1; overflow-wrap: anywhere;
+                }
+                .metric.small { font-size: 22px; }
+                .card-note { margin-top: 7px; color: var(--muted); font-size: 11px; }
+                .progress {
+                    height: 6px; margin-top: 13px; background: #26313e;
+                    border-radius: 99px; overflow: hidden;
+                }
+                .progress > div { height: 100%; width: 0; border-radius: inherit; background: var(--blue); transition: width .25s; }
+                .blue { color: var(--blue); } .green { color: var(--green); }
+                .amber { color: var(--amber); } .purple { color: var(--purple); }
+                .detail-list { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 10px; }
+                .detail {
+                    display: flex; justify-content: space-between; gap: 12px;
+                    padding: 11px 0; border-bottom: 1px solid #26313d; font-size: 12px;
+                }
+                .detail:last-child, .detail:nth-last-child(2) { border-bottom: 0; }
+                .detail span:first-child { color: var(--muted); }
+                .detail strong { text-align: right; overflow-wrap: anywhere; }
+                .interface-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 13px; }
+                .interface-card { padding: 19px; }
+                .interface-head { display:flex; justify-content:space-between; gap:12px; align-items:center; }
+                .interface-title { font-weight: 700; font-size: 15px; }
+                .interface-name { color: var(--muted); font: 11px ui-monospace, monospace; margin-top: 4px; }
+                .chip {
+                    padding: 5px 9px; border: 1px solid #2c4b3b; border-radius: 999px;
+                    color: #8cddb0; background: #14271f; font-size: 10px; white-space: nowrap;
+                }
+                .link-speed { margin: 19px 0 4px; font-size: 28px; font-weight: 730; letter-spacing: -.6px; }
+                .link-caption { color: var(--muted); font-size: 11px; }
+                .rate-list { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 8px; margin-top: 15px; }
+                .rate {
+                    padding: 10px; border-radius: 9px; background: #0e141c;
+                    border: 1px solid #26313d;
+                }
+                .rate span { display:block; color:var(--muted); font-size:10px; margin-bottom:5px; }
+                .rate strong { font-size:13px; overflow-wrap:anywhere; }
+                .footer-line {
+                    display:flex; justify-content:space-between; flex-wrap:wrap; gap:10px;
+                    padding: 14px 16px; margin-top: 16px; background:#111821;
+                    border:1px solid var(--border); border-radius:11px;
+                    color:var(--muted); font-size:11px;
+                }
+                @media (max-width: 1150px) {
+                    .grid { grid-template-columns: repeat(2,minmax(0,1fr)); }
+                    .grid.three { grid-template-columns: repeat(2,minmax(0,1fr)); }
+                }
+                @media (max-width: 800px) {
+                    .sidebar { position: static; width: 100%; height:auto; }
+                    .logo img { width:90px; height:90px; }
+                    .main { margin-left:0; padding:19px; }
+                    .page-header { flex-direction:column; }
+                    .interface-grid { grid-template-columns:1fr; }
+                }
+                @media (max-width: 520px) {
+                    .grid, .grid.three, .detail-list { grid-template-columns:1fr; }
+                    .detail:last-child, .detail:nth-last-child(2) { border-bottom:1px solid #26313d; }
+                    .detail:last-child { border-bottom:0; }
+                    h1 { font-size:25px; }
+                }
+            </style>
+        </head>
+        <body>
+            <aside class="sidebar">
+                <div class="logo">
+                    <img src="/logo.png" alt="PiHarbor"
+                         onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
+                    <div class="logo-text">PiHarbor</div>
+                </div>
+                <nav class="nav">
+                    <a href="/">Dashboard</a>
+                    <a href="/health" class="active">Device Health</a>
+                    <a href="/topology">Topology</a>
+                    <a href="/dns">DNS</a>
+                </nav>
+            </aside>
 
+            <main class="main">
+                <header class="page-header">
+                    <div>
+                        <h1>Device Health</h1>
+                        <div class="subtitle">Live Raspberry Pi diagnostics, hardware status and network interface capacity</div>
+                    </div>
+                    <div class="refresh-pill"><span class="live-dot"></span><span id="health-state">Connecting</span></div>
+                </header>
 
-                const data =
-                    await response.json();
+                <section class="section">
+                    <div class="section-heading"><h2>System overview</h2><span>Live resource utilization</span></div>
+                    <div class="grid">
+                        <div class="card">
+                            <div class="card-label">CPU utilization</div>
+                            <div class="metric blue" id="cpu">--</div>
+                            <div class="progress"><div id="cpu-bar"></div></div>
+                            <div class="card-note">Processor usage</div>
+                        </div>
+                        <div class="card">
+                            <div class="card-label">Memory</div>
+                            <div class="metric purple" id="memory">--</div>
+                            <div class="progress"><div id="memory-bar"></div></div>
+                            <div class="card-note" id="memory-note">RAM utilization</div>
+                        </div>
+                        <div class="card">
+                            <div class="card-label">CPU temperature</div>
+                            <div class="metric amber" id="temperature">--</div>
+                            <div class="card-note">SoC temperature</div>
+                        </div>
+                        <div class="card">
+                            <div class="card-label">Root storage</div>
+                            <div class="metric green" id="storage">--</div>
+                            <div class="progress"><div id="storage-bar"></div></div>
+                            <div class="card-note">Filesystem utilization</div>
+                        </div>
+                    </div>
+                </section>
 
+                <section class="section">
+                    <div class="section-heading"><h2>Network link capacity</h2><span>Negotiated link details, not internet speed-test results</span></div>
+                    <div class="interface-grid">
+                        <div class="card interface-card">
+                            <div class="interface-head">
+                                <div><div class="interface-title">WAN · Ethernet</div><div class="interface-name" id="wan-name">eth0</div></div>
+                                <span class="chip" id="wan-state">Checking</span>
+                            </div>
+                            <div class="link-speed blue" id="wan-speed">--</div>
+                            <div class="link-caption" id="wan-duplex">Negotiated Ethernet capacity</div>
+                            <div class="rate-list">
+                                <div class="rate"><span>RX errors / drops</span><strong id="wan-rx">--</strong></div>
+                                <div class="rate"><span>TX errors / drops</span><strong id="wan-tx">--</strong></div>
+                            </div>
+                        </div>
+                        <div class="card interface-card">
+                            <div class="interface-head">
+                                <div><div class="interface-title">LAN · Wi-Fi access point</div><div class="interface-name" id="lan-name">wlan0</div></div>
+                                <span class="chip" id="lan-state">Checking</span>
+                            </div>
+                            <div class="link-speed purple" id="lan-speed">--</div>
+                            <div class="link-caption" id="lan-duplex">Per-client wireless PHY rates</div>
+                            <div class="rate-list">
+                                <div class="rate"><span>Connected stations</span><strong id="lan-clients">--</strong></div>
+                                <div class="rate"><span>Example TX / RX rate</span><strong id="lan-rates">--</strong></div>
+                                <div class="rate"><span>RX errors / drops</span><strong id="lan-rx">--</strong></div>
+                                <div class="rate"><span>TX errors / drops</span><strong id="lan-tx">--</strong></div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
 
-                const system =
-                    data.system || {};
+                <section class="section">
+                    <div class="section-heading"><h2>System diagnostics</h2><span>Additional operating conditions</span></div>
+                    <div class="grid three">
+                        <div class="card">
+                            <div class="card-label">CPU frequency</div>
+                            <div class="metric small" id="frequency">--</div>
+                            <div class="card-note">Current CPU clock</div>
+                        </div>
+                        <div class="card">
+                            <div class="card-label">Load average</div>
+                            <div class="metric small" id="load">--</div>
+                            <div class="card-note">1 / 5 / 15 minute averages</div>
+                        </div>
+                        <div class="card">
+                            <div class="card-label">Swap utilization</div>
+                            <div class="metric small" id="swap">--</div>
+                            <div class="progress"><div id="swap-bar"></div></div>
+                            <div class="card-note">Swap space in use</div>
+                        </div>
+                        <div class="card">
+                            <div class="card-label">Power / throttling</div>
+                            <div class="metric small" id="throttling">--</div>
+                            <div class="card-note" id="throttling-note">Firmware throttling flags</div>
+                        </div>
+                        <div class="card">
+                            <div class="card-label">Failed services</div>
+                            <div class="metric small" id="failed-services">--</div>
+                            <div class="card-note">systemd failed-unit count</div>
+                        </div>
+                        <div class="card">
+                            <div class="card-label">System uptime</div>
+                            <div class="metric small" id="uptime">--</div>
+                            <div class="card-note">Time since last boot</div>
+                        </div>
+                    </div>
+                </section>
 
+                <div class="footer-line">
+                    <span>Metrics refresh automatically every 5 seconds</span>
+                    <span>Last updated: <strong id="updated">--</strong></span>
+                </div>
+            </main>
 
-                const cpu =
-                    system.cpu_usage;
-
-                const memory =
-                    system.memory_usage;
-
-                const storage =
-                    system.storage_usage;
-
-
-                document.getElementById(
-                    "cpu"
-                ).textContent =
-
-                    cpu !== null &&
-                    cpu !== undefined
-
-                        ? cpu + "%"
-
-                        : "N/A";
-
-
-                document.getElementById(
-                    "memory"
-                ).textContent =
-
-                    memory !== null &&
-                    memory !== undefined
-
-                        ? memory + "%"
-
-                        : "N/A";
-
-
-                document.getElementById(
-                    "temperature"
-                ).textContent =
-
-                    system.temperature !== null &&
-                    system.temperature !== undefined
-
-                        ? system.temperature + "°C"
-
-                        : "N/A";
-
-
-                document.getElementById(
-                    "storage"
-                ).textContent =
-
-                    storage !== null &&
-                    storage !== undefined
-
-                        ? storage + "%"
-
-                        : "N/A";
-
-
-                document.getElementById(
-                    "uptime"
-                ).textContent =
-                    system.uptime_text ||
-                    "Unknown";
-
-
-                document.getElementById(
-                    "updated"
-                ).textContent =
-                    new Date().toLocaleTimeString();
-
-
-                setProgress(
-                    "cpu-bar",
-                    cpu
-                );
-
-                setProgress(
-                    "memory-bar",
-                    memory
-                );
-
-                setProgress(
-                    "storage-bar",
-                    storage
-                );
-
-
-            } catch (error) {
-
-                console.error(
-                    "Device health refresh failed:",
-                    error
-                );
-
-            }
-
-        }
-
-
-        refreshHealth();
-
-        setInterval(
-            refreshHealth,
-            3000
-        );
-
-        </script>
-
+            <script>
+                const byId = id => document.getElementById(id);
+                function valueText(value, suffix = "") {
+                    return value === null || value === undefined || value === "" ? "N/A" : `${value}${suffix}`;
+                }
+                function setProgress(id, value) {
+                    const n = Number(value);
+                    byId(id).style.width = Number.isFinite(n) ? `${Math.max(0, Math.min(100, n))}%` : "0%";
+                }
+                function setText(id, value) { byId(id).textContent = value; }
+                function renderInterface(prefix, link, isWifi) {
+                    if (!link) return;
+                    setText(`${prefix}-name`, link.interface || "Unknown interface");
+                    setText(`${prefix}-state`, link.state || "Unknown");
+                    const speed = link.speed_mbps;
+                    if (isWifi) {
+                        setText(`${prefix}-speed`, link.clients ? `${link.clients} station${link.clients === 1 ? "" : "s"}` : "AP link");
+                        setText(`${prefix}-duplex`, "Wireless capacity varies by connected client");
+                        setText("lan-clients", valueText(link.clients));
+                        const tx = (link.tx_bitrate || [])[0] || "N/A";
+                        const rx = (link.rx_bitrate || [])[0] || "N/A";
+                        setText("lan-rates", `${tx} / ${rx}`);
+                    } else {
+                        setText(`${prefix}-speed`, speed ? `${speed} Mbps` : "N/A");
+                        setText(`${prefix}-duplex`, speed ? `${link.duplex || "Unknown"} duplex · negotiated Ethernet link` : "Link speed unavailable");
+                    }
+                    setText(`${prefix}-rx`, `${valueText(link.rx_errors)} / ${valueText(link.rx_dropped)}`);
+                    setText(`${prefix}-tx`, `${valueText(link.tx_errors)} / ${valueText(link.tx_dropped)}`);
+                }
+                async function refreshHealth() {
+                    try {
+                        const [dashboardResponse, detailsResponse] = await Promise.all([
+                            fetch("/api/dashboard", {cache:"no-store"}),
+                            fetch("/api/health-details", {cache:"no-store"})
+                        ]);
+                        if (!dashboardResponse.ok || !detailsResponse.ok) throw new Error("Health API unavailable");
+                        const dashboard = await dashboardResponse.json();
+                        const details = await detailsResponse.json();
+                        const system = dashboard.system || {};
+                        for (const [key, val] of [["cpu",system.cpu_usage],["memory",system.memory_usage],["storage",system.storage_usage]]) {
+                            setText(key, valueText(val, "%"));
+                            setProgress(`${key}-bar`, val);
+                        }
+                        setText("temperature", valueText(system.temperature, "°C"));
+                        setText("uptime", system.uptime_text || "Unknown");
+                        setText("frequency", valueText(details.cpu_frequency_mhz, " MHz"));
+                        setText("load", (details.load_average || []).join(" / ") || "N/A");
+                        setText("swap", valueText(details.swap_used_percent, "%"));
+                        setProgress("swap-bar", details.swap_used_percent);
+                        setText("throttling", details.throttling || "Unknown");
+                        setText("throttling-note", details.throttling_raw || "Firmware status");
+                        setText("failed-services", valueText(details.failed_services));
+                        renderInterface("wan", details.wan_link, false);
+                        renderInterface("lan", details.lan_link, true);
+                        setText("health-state", "Live diagnostics");
+                        setText("updated", new Date().toLocaleTimeString());
+                    } catch (error) {
+                        console.error("Device health refresh failed:", error);
+                        setText("health-state", "Refresh error");
+                    }
+                }
+                refreshHealth();
+                setInterval(refreshHealth, 5000);
+            </script>
         </body>
-
         </html>
         """
     )
@@ -5128,434 +5090,207 @@ def dns_page():
     return render_template_string(
         """
         <!DOCTYPE html>
-
-        <html>
-
+        <html lang="en">
         <head>
-
-        <meta
-            name="viewport"
-            content="width=device-width"
-        >
-
-        <title>
-            DNS - PiHarbor
-        </title>
-
-        <style>
-
-        * { box-sizing: border-box; }
-
-        body {
-            margin: 0;
-            padding: 0;
-            background:#0b0e12;
-            color:#f1f1f1;
-            font-family:Arial,sans-serif;
-        }
-
-        .sidebar {
-            position: fixed;
-            left: 0;
-            top: 0;
-            bottom: 0;
-            width: 220px;
-            background: #12161c;
-            border-right: 1px solid #252b34;
-            padding: 24px 16px;
-            z-index: 10;
-        }
-
-        .logo { margin-bottom: 30px; text-align: center; }
-        .logo img {
-            display: block;
-            width: 150px;
-            height: 150px;
-            object-fit: cover;
-            border-radius: 50%;
-            margin: 0 auto 8px;
-        }
-        .logo-text { display: none; font-size: 24px; font-weight: 700; }
-        .nav a {
-            display: block;
-            padding: 11px 13px;
-            margin-bottom: 5px;
-            border-radius: 8px;
-            color: #aeb5bf;
-            text-decoration: none;
-        }
-        .nav a:hover, .nav a.active { background: #222831; color: #fff; }
-        .main { margin-left: 220px; padding: 30px; max-width: 1600px; }
-
-        .card {
-            background:#171a21;
-            border:1px solid #282c35;
-            border-radius:12px;
-            padding:20px;
-            max-width:900px;
-            margin-bottom:20px;
-        }
-
-        a {
-            color:white;
-        }
-
-        .status {
-            font-size:24px;
-            font-weight:bold;
-        }
-
-        .active {
-            color:#65d985;
-        }
-
-        .inactive {
-            color:#d96868;
-        }
-
-        .button {
-            padding:9px 14px;
-            background:#252a34;
-            color:white;
-            border:1px solid #3a404c;
-            border-radius:7px;
-            cursor:pointer;
-            margin-right:8px;
-        }
-
-        .button:hover {
-            background:#303642;
-        }
-
-        .message {
-            padding:12px;
-            border-radius:8px;
-            margin-bottom:20px;
-            background:#252a34;
-        }
-
-        .message.success {
-            border:1px solid #3b7650;
-        }
-
-        .message.error {
-            border:1px solid #7a4141;
-        }
-
-        .row {
-            padding:12px 0;
-            border-bottom:1px solid #282c35;
-        }
-
-        .row:last-child {
-            border-bottom:none;
-        }
-
-        .value {
-            float:right;
-            font-weight:600;
-        }
-
-        .custom-domain-form {
-            display:flex;
-            gap:10px;
-            margin-bottom:20px;
-        }
-
-        .domain-input {
-            flex:1;
-            padding:10px;
-            background:#0f1115;
-            color:white;
-            border:1px solid #3a404c;
-            border-radius:7px;
-            min-width:0;
-        }
-
-        .custom-domain {
-            display:flex;
-            justify-content:space-between;
-            align-items:center;
-            gap:10px;
-            padding:12px 0;
-            border-bottom:1px solid #282c35;
-        }
-
-        .custom-domain:last-child {
-            border-bottom:none;
-        }
-
-        .domain-name {
-            word-break:break-all;
-        }
-
-        .remove-form {
-            margin:0;
-        }
-
-        @media (max-width:800px) {
-            .sidebar {
-                position: static;
-                width: 100%;
-                height: auto;
-            }
-            .main {
-                margin-left: 0;
-                padding: 16px;
-            }
-        }
-
-        @media (max-width:600px) {
-            .custom-domain-form { flex-direction:column; }
-        }
-
-        </style>
-
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>DNS - PiHarbor</title>
+            <style>
+                * { box-sizing: border-box; }
+                :root {
+                    color-scheme: dark; --bg:#0b0e12; --panel:#121821;
+                    --panel2:#151d28; --border:#263241; --muted:#8793a3;
+                    --text:#eef3f8; --green:#62d995; --red:#ef7777; --blue:#78b7ff;
+                }
+                body { margin:0; background:var(--bg); color:var(--text); font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; }
+                .sidebar { position:fixed; inset:0 auto 0 0; width:220px; padding:22px 16px; background:#111720; border-right:1px solid var(--border); }
+                .logo { margin-bottom:28px; text-align:center; }
+                .logo img { display:block; width:138px; height:138px; object-fit:cover; border-radius:50%; margin:0 auto 8px; }
+                .logo-text { display:none; font-size:23px; font-weight:750; }
+                .nav a { display:block; padding:11px 13px; margin:4px 0; border-radius:9px; color:#aeb9c7; text-decoration:none; font-size:14px; }
+                .nav a:hover,.nav a.active { background:#202b39; color:#fff; }
+                .main { margin-left:220px; padding:32px; max-width:1500px; }
+                .page-header { display:flex; justify-content:space-between; align-items:flex-start; gap:20px; margin-bottom:24px; }
+                h1 { margin:0; font-size:29px; letter-spacing:-.7px; }
+                h2 { margin:0; font-size:16px; letter-spacing:-.2px; }
+                h3 { margin:20px 0 12px; font-size:13px; }
+                .subtitle { margin-top:7px; color:var(--muted); font-size:13px; }
+                .status-pill { padding:7px 11px; border-radius:999px; font-size:11px; font-weight:650; white-space:nowrap; }
+                .status-pill.on { color:#8cddb0; background:#14271f; border:1px solid #2c4b3b; }
+                .status-pill.off { color:#f09a9a; background:#2b191c; border:1px solid #583238; }
+                .card { min-width:0; padding:20px; margin-bottom:15px; border:1px solid var(--border); border-radius:13px; background:linear-gradient(145deg,var(--panel2),var(--panel)); }
+                .card-heading { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:16px; }
+                .card-description { color:var(--muted); font-size:12px; line-height:1.6; margin:7px 0 0; }
+                .overview { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:13px; margin-bottom:15px; }
+                .stat { padding:17px; border:1px solid var(--border); border-radius:12px; background:#111821; }
+                .stat-label { color:#9aa7b7; font-size:10px; font-weight:650; letter-spacing:.08em; text-transform:uppercase; }
+                .stat-value { margin-top:8px; font-size:25px; font-weight:730; letter-spacing:-.5px; overflow-wrap:anywhere; }
+                .stat-note { margin-top:5px; color:var(--muted); font-size:11px; }
+                .green { color:var(--green); } .blue { color:var(--blue); }
+                .notice { padding:12px 14px; margin-bottom:15px; border:1px solid var(--border); border-radius:10px; background:#151d28; color:#c5d0dc; font-size:12px; }
+                .notice.success { border-color:#315d45; color:#a1e3b9; }
+                .notice.error { border-color:#63363b; color:#f0a1a1; }
+                .actions { display:flex; flex-wrap:wrap; gap:9px; margin-top:17px; }
+                .button { padding:10px 14px; border:1px solid #39495b; border-radius:8px; background:#202c3a; color:#edf4fb; font-size:12px; font-weight:650; cursor:pointer; transition:.15s; }
+                .button:hover { background:#2a3a4d; border-color:#52708e; }
+                .button.primary { background:#1b4262; border-color:#2d638f; }
+                .button.danger { background:#321e23; border-color:#63363b; color:#f0b0b0; }
+                .custom-form { display:flex; gap:10px; margin-top:16px; }
+                .domain-input { flex:1; min-width:0; padding:11px 12px; border:1px solid #344253; border-radius:8px; background:#0d131b; color:#f2f6fa; font:13px ui-monospace,monospace; outline:none; }
+                .domain-input:focus { border-color:#6099cb; box-shadow:0 0 0 3px #6099cb22; }
+                .domain-list { margin-top:12px; border-top:1px solid var(--border); }
+                .domain-row { display:flex; justify-content:space-between; align-items:center; gap:14px; padding:12px 0; border-bottom:1px solid #26313d; }
+                .domain-row:last-child { border-bottom:0; }
+                .domain-name { min-width:0; overflow-wrap:anywhere; font:12px ui-monospace,monospace; color:#d9e4ef; }
+                .empty { padding:17px 0 4px; color:var(--muted); font-size:12px; }
+                .health-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:0 24px; }
+                .health-row { display:flex; justify-content:space-between; gap:12px; padding:11px 0; border-bottom:1px solid #26313d; font-size:12px; }
+                .health-row span:first-child { color:var(--muted); }
+                .health-row strong { text-align:right; overflow-wrap:anywhere; }
+                @media(max-width:950px) { .overview { grid-template-columns:repeat(2,minmax(0,1fr)); } }
+                @media(max-width:800px) {
+                    .sidebar { position:static; width:100%; height:auto; }
+                    .logo img { width:90px; height:90px; }
+                    .main { margin-left:0; padding:19px; }
+                    .page-header { flex-direction:column; }
+                }
+                @media(max-width:560px) {
+                    .overview,.health-grid { grid-template-columns:1fr; }
+                    .custom-form { flex-direction:column; }
+                    .domain-row { align-items:flex-start; }
+                    h1 { font-size:25px; }
+                }
+            </style>
         </head>
-
         <body>
-        <div class="sidebar">
-            <div class="logo">
-                <img src="/logo.png" alt="PiHarbor"
-                     onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
-                <div class="logo-text">PiHarbor</div>
-            </div>
-            <div class="nav">
-                <a href="/">Dashboard</a>
-                <a href="/health">Device Health</a>
-                <a href="/topology">Topology</a>
-                <a href="/dns" class="active">DNS</a>
-            </div>
-        </div>
-
-        <div class="main">
-        <h1>
-            DNS
-        </h1>
-
-
-        {% if message %}
-
-            <div class="message {{ message_type }}">
-                {{ message }}
-            </div>
-
-        {% endif %}
-
-
-        <!-- AD BLOCKING -->
-
-        <div class="card">
-
-            <h2>
-                Ad Blocking
-            </h2>
-
-
-            <div class="row">
-
-                Status
-
-                {% if status.enabled %}
-
-                    <span class="value active">
-                        Enabled
-                    </span>
-
-                {% else %}
-
-                    <span class="value inactive">
-                        Disabled
-                    </span>
-
-                {% endif %}
-
-            </div>
-
-
-            <div class="row">
-
-                Blocked Domains
-
-                <span class="value">
-                    {{ status.blocked_domains }}
-                </span>
-
-            </div>
-
-
-            <div class="row">
-
-                Last Updated
-
-                <span class="value">
-
-                    {% if status.last_update %}
-
-                        {{ status.last_update }}
-
-                    {% else %}
-
-                        Never
-
-                    {% endif %}
-
-                </span>
-
-            </div>
-
-
-            <br>
-
-
-            <form method="post">
-
-                {% if status.enabled %}
-
-                    <button
-                        class="button"
-                        name="adblock_action"
-                        value="disable"
-                    >
-                        Disable Ad Blocking
-                    </button>
-
-                {% else %}
-
-                    <button
-                        class="button"
-                        name="adblock_action"
-                        value="enable"
-                    >
-                        Enable Ad Blocking
-                    </button>
-
-                {% endif %}
-
-
-                <button
-                    class="button"
-                    name="adblock_action"
-                    value="update"
-                >
-                    Update Blocklist
-                </button>
-
-            </form>
-
-        </div>
-
-
-        <!-- CUSTOM BLOCKLIST -->
-
-        <div class="card">
-
-            <h2>
-                Custom Blocklist
-            </h2>
-
-
-            <p style="color:#888;">
-
-                Add your own domains to block.
-                You can enter a domain or paste a URL.
-
-            </p>
-
-
-            <form method="post">
-
-                <div class="custom-domain-form">
-
-                    <input
-                        class="domain-input"
-                        type="text"
-                        name="domain"
-                        placeholder="example.com"
-                        required
-                    >
-
-
-                    <button
-                        class="button"
-                        type="submit"
-                        name="custom_action"
-                        value="add"
-                    >
-                        Block Domain
-                    </button>
-
+            <aside class="sidebar">
+                <div class="logo">
+                    <img src="/logo.png" alt="PiHarbor"
+                         onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
+                    <div class="logo-text">PiHarbor</div>
                 </div>
+                <nav class="nav">
+                    <a href="/">Dashboard</a>
+                    <a href="/health">Device Health</a>
+                    <a href="/topology">Topology</a>
+                    <a href="/dns" class="active">DNS</a>
+                </nav>
+            </aside>
 
-            </form>
-
-
-            <h3>
-                Custom Blocked Domains
-            </h3>
-
-
-            {% if custom_domains %}
-
-                {% for domain in custom_domains %}
-
-                    <div class="custom-domain">
-
-                        <span class="domain-name">
-                            {{ domain }}
-                        </span>
-
-
-                        <form
-                            method="post"
-                            class="remove-form"
-                        >
-
-                            <input
-                                type="hidden"
-                                name="domain"
-                                value="{{ domain }}"
-                            >
-
-
-                            <button
-                                class="button"
-                                type="submit"
-                                name="custom_action"
-                                value="remove"
-                            >
-                                Remove
-                            </button>
-
-                        </form>
-
+            <main class="main">
+                <header class="page-header">
+                    <div>
+                        <h1>DNS & Ad Blocking</h1>
+                        <div class="subtitle">Manage domain filtering, custom rules and DNS resolver health</div>
                     </div>
+                    <span class="status-pill {{ 'on' if status.enabled else 'off' }}">
+                        {{ 'Protection enabled' if status.enabled else 'Protection disabled' }}
+                    </span>
+                </header>
 
-                {% endfor %}
+                {% if message %}
+                    <div class="notice {{ message_type }}">{{ message }}</div>
+                {% endif %}
 
+                <section class="overview">
+                    <div class="stat">
+                        <div class="stat-label">Ad blocking</div>
+                        <div class="stat-value {{ 'green' if status.enabled else '' }}">{{ 'Enabled' if status.enabled else 'Disabled' }}</div>
+                        <div class="stat-note">PiHarbor domain filtering</div>
+                    </div>
+                    <div class="stat">
+                        <div class="stat-label">Blocked domains</div>
+                        <div class="stat-value blue">{{ "{:,}".format(status.blocked_domains or 0) }}</div>
+                        <div class="stat-note">Domains in the active blocklist</div>
+                    </div>
+                    <div class="stat">
+                        <div class="stat-label">Blocklist size</div>
+                        <div class="stat-value">{{ (status.size_bytes / 1048576)|round(1) if status.size_bytes else 0 }} MB</div>
+                        <div class="stat-note">Last update: {{ status.last_update or "Never" }}</div>
+                    </div>
+                </section>
 
-            {% else %}
+                <section class="card">
+                    <div class="card-heading">
+                        <div>
+                            <h2>Protection controls</h2>
+                            <p class="card-description">Enable or disable filtering, or refresh the domain blocklist.</p>
+                        </div>
+                    </div>
+                    <form method="post" class="actions">
+                        {% if status.enabled %}
+                            <button class="button danger" name="adblock_action" value="disable">Disable protection</button>
+                        {% else %}
+                            <button class="button primary" name="adblock_action" value="enable">Enable protection</button>
+                        {% endif %}
+                        <button class="button" name="adblock_action" value="update">Update blocklist</button>
+                    </form>
+                </section>
 
-                <p style="color:#777;">
-                    No custom domains are blocked.
-                </p>
+                {% if dns_health %}
+                <section class="card">
+                    <div class="card-heading">
+                        <div>
+                            <h2>DNS resolver health</h2>
+                            <p class="card-description">Live status reported by the DNS monitoring backend.</p>
+                        </div>
+                    </div>
+                    <div class="health-grid">
+                        {% for key, value in dns_health.items() %}
+                            <div class="health-row">
+                                <span>{{ key|replace('_',' ')|title }}</span>
+                                <strong>{{ value if value is not none else "N/A" }}</strong>
+                            </div>
+                        {% endfor %}
+                    </div>
+                </section>
+                {% else %}
+                <section class="card">
+                    <h2>DNS resolver health</h2>
+                    <p class="card-description">DNS health details are currently unavailable from the monitoring backend.</p>
+                </section>
+                {% endif %}
 
-            {% endif %}
+                <section class="card">
+                    <div class="card-heading">
+                        <div>
+                            <h2>Custom blocklist</h2>
+                            <p class="card-description">Add a domain to block it on your network. You can enter a hostname or paste a URL.</p>
+                        </div>
+                    </div>
+                    <form method="post" class="custom-form">
+                        <input class="domain-input" type="text" name="domain" placeholder="example.com" required>
+                        <button class="button primary" type="submit" name="custom_action" value="add">Block domain</button>
+                    </form>
 
-        </div>
-        </div>
-
+                    <h3>Custom blocked domains <span style="color:var(--muted);font-weight:400;">({{ custom_domains|length }})</span></h3>
+                    <div class="domain-list">
+                        {% if custom_domains %}
+                            {% for domain in custom_domains %}
+                                <div class="domain-row">
+                                    <span class="domain-name">{{ domain }}</span>
+                                    <form method="post" class="remove-form">
+                                        <input type="hidden" name="domain" value="{{ domain }}">
+                                        <button class="button danger" type="submit" name="custom_action" value="remove">Remove</button>
+                                    </form>
+                                </div>
+                            {% endfor %}
+                        {% else %}
+                            <div class="empty">No custom domains have been added.</div>
+                        {% endif %}
+                    </div>
+                </section>
+            </main>
         </body>
-
         </html>
         """,
-
         status=status,
         dns_health=dns_health,
         message=message,
         message_type=message_type,
         custom_domains=custom_domains,
     )
+
 
 
 # ============================================================
