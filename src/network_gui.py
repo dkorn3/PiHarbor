@@ -4063,6 +4063,10 @@ def topology_page():
 # Device Health
 # ============================================================
 
+# ============================================================
+# Device Health
+# ============================================================
+
 @app.route("/health")
 def device_health_page():
 
@@ -4075,14 +4079,10 @@ def device_health_page():
 
         <meta charset="UTF-8">
 
-        <meta
-            name="viewport"
-            content="width=device-width, initial-scale=1.0"
-        >
+        <meta name="viewport"
+              content="width=device-width, initial-scale=1.0">
 
-        <title>
-            Device Health - PiHarbor
-        </title>
+        <title>Device Health - PiHarbor</title>
 
         <style>
 
@@ -4164,11 +4164,10 @@ def device_health_page():
             margin-top: 5px;
         }
 
-        .card {
-            background: #12161c;
-            border: 1px solid #252b34;
-            border-radius: 12px;
-            padding: 18px;
+        .section-title {
+            font-size: 16px;
+            font-weight: 600;
+            margin: 28px 0 13px;
         }
 
         .grid {
@@ -4176,6 +4175,14 @@ def device_health_page():
             grid-template-columns:
                 repeat(4, minmax(180px, 1fr));
             gap: 14px;
+        }
+
+        .card {
+            background: #12161c;
+            border: 1px solid #252b34;
+            border-radius: 12px;
+            padding: 18px;
+            min-width: 0;
         }
 
         .card h3 {
@@ -4212,8 +4219,115 @@ def device_health_page():
             transition: width .25s ease;
         }
 
+        .network-grid {
+            display: grid;
+            grid-template-columns:
+                repeat(2, minmax(250px, 1fr));
+            gap: 14px;
+        }
+
+        .network-card {
+            background: #12161c;
+            border: 1px solid #252b34;
+            border-radius: 12px;
+            padding: 20px;
+        }
+
+        .network-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .network-header h3 {
+            margin: 0;
+            font-size: 17px;
+        }
+
+        .interface {
+            color: #7f8793;
+            font-size: 12px;
+            margin-top: 4px;
+        }
+
+        .status {
+            font-size: 11px;
+            padding: 5px 9px;
+            border-radius: 20px;
+            background: #202a25;
+            color: #6ed69a;
+        }
+
+        .status.down {
+            background: #332020;
+            color: #ff8585;
+        }
+
+        .network-capacity {
+            background: #191f27;
+            border-radius: 9px;
+            padding: 13px;
+            margin-bottom: 15px;
+        }
+
+        .capacity-label {
+            color: #858f9c;
+            font-size: 12px;
+        }
+
+        .capacity-value {
+            font-size: 23px;
+            font-weight: 700;
+            margin-top: 5px;
+        }
+
+        .traffic-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+        }
+
+        .traffic-item {
+            background: #191f27;
+            padding: 13px;
+            border-radius: 9px;
+        }
+
+        .traffic-label {
+            color: #858f9c;
+            font-size: 12px;
+        }
+
+        .traffic-value {
+            font-size: 20px;
+            font-weight: 650;
+            margin-top: 7px;
+        }
+
+        .traffic-usage {
+            color: #7f8793;
+            font-size: 11px;
+            margin-top: 5px;
+        }
+
+        .traffic-bar {
+            height: 5px;
+            background: #303843;
+            border-radius: 20px;
+            margin-top: 12px;
+            overflow: hidden;
+        }
+
+        .traffic-bar div {
+            height: 100%;
+            width: 0;
+            background: #56b8e8;
+            transition: width .3s ease;
+        }
+
         .health-status {
-            margin-top: 14px;
+            margin-top: 20px;
             padding: 14px 16px;
             background: #151a21;
             border: 1px solid #252b34;
@@ -4223,16 +4337,38 @@ def device_health_page():
         }
 
         @media (max-width: 1050px) {
-
             .grid {
                 grid-template-columns:
                     repeat(2, 1fr);
             }
-
         }
 
-        
-</style>
+        @media (max-width: 700px) {
+            .sidebar {
+                position: relative;
+                width: 100%;
+                height: auto;
+                border-right: none;
+                border-bottom: 1px solid #252b34;
+            }
+
+            .main {
+                margin-left: 0;
+                padding: 20px;
+            }
+
+            .network-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        @media (max-width: 450px) {
+            .grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        </style>
 
         </head>
 
@@ -4241,35 +4377,21 @@ def device_health_page():
         <div class="sidebar">
 
             <div class="logo">
-
                 PiHarbor
-
-                <span>
-                    Network Gateway
-                </span>
-
+                <span>Network Gateway</span>
             </div>
 
             <div class="nav">
 
-                <a href="/">
-                    Dashboard
-                </a>
+                <a href="/">Dashboard</a>
 
-                <a
-                    href="/health"
-                    class="active"
-                >
+                <a href="/health" class="active">
                     Device Health
                 </a>
 
-                <a href="/topology">
-                    Topology
-                </a>
+                <a href="/topology">Topology</a>
 
-                <a href="/dns">
-                    DNS
-                </a>
+                <a href="/dns">DNS</a>
 
             </div>
 
@@ -4281,40 +4403,32 @@ def device_health_page():
             <div class="header">
 
                 <div>
-
-                    <h1>
-                        Device Health
-                    </h1>
+                    <h1>Device Health</h1>
 
                     <div class="header-sub">
-                        Raspberry Pi system health
-                        and resources
+                        Raspberry Pi system health and resources
                     </div>
-
                 </div>
 
             </div>
 
 
+            <!-- SYSTEM METRICS -->
+
+            <div class="section-title">
+                System Resources
+            </div>
+
             <div class="grid">
 
                 <div class="card">
 
-                    <h3>
-                        CPU Usage
-                    </h3>
+                    <h3>CPU Usage</h3>
 
-                    <div
-                        class="metric"
-                        id="cpu"
-                    >
-                        --
-                    </div>
+                    <div class="metric" id="cpu">--</div>
 
                     <div class="progress">
-
                         <div id="cpu-bar"></div>
-
                     </div>
 
                     <div class="sub">
@@ -4326,21 +4440,27 @@ def device_health_page():
 
                 <div class="card">
 
-                    <h3>
-                        Memory
-                    </h3>
+                    <h3>CPU Frequency</h3>
 
-                    <div
-                        class="metric"
-                        id="memory"
-                    >
+                    <div class="metric" id="cpu-frequency">
                         --
                     </div>
 
+                    <div class="sub" id="cpu-frequency-mhz">
+                        Current processor clock
+                    </div>
+
+                </div>
+
+
+                <div class="card">
+
+                    <h3>Memory</h3>
+
+                    <div class="metric" id="memory">--</div>
+
                     <div class="progress">
-
                         <div id="memory-bar"></div>
-
                     </div>
 
                     <div class="sub">
@@ -4352,14 +4472,9 @@ def device_health_page():
 
                 <div class="card">
 
-                    <h3>
-                        Temperature
-                    </h3>
+                    <h3>Temperature</h3>
 
-                    <div
-                        class="metric"
-                        id="temperature"
-                    >
+                    <div class="metric" id="temperature">
                         --
                     </div>
 
@@ -4372,21 +4487,12 @@ def device_health_page():
 
                 <div class="card">
 
-                    <h3>
-                        Storage
-                    </h3>
+                    <h3>Storage</h3>
 
-                    <div
-                        class="metric"
-                        id="storage"
-                    >
-                        --
-                    </div>
+                    <div class="metric" id="storage">--</div>
 
                     <div class="progress">
-
                         <div id="storage-bar"></div>
-
                     </div>
 
                     <div class="sub">
@@ -4398,22 +4504,201 @@ def device_health_page():
             </div>
 
 
+            <!-- NETWORK METRICS -->
+
+            <div class="section-title">
+                Network Link Health
+            </div>
+
+            <div class="network-grid">
+
+
+                <!-- WAN -->
+
+                <div class="network-card">
+
+                    <div class="network-header">
+
+                        <div>
+                            <h3>WAN</h3>
+
+                            <div class="interface" id="wan-interface">
+                                eth0
+                            </div>
+                        </div>
+
+                        <span class="status" id="wan-status">
+                            --
+                        </span>
+
+                    </div>
+
+
+                    <div class="network-capacity">
+
+                        <div class="capacity-label">
+                            Link Capacity
+                        </div>
+
+                        <div class="capacity-value" id="wan-capacity">
+                            --
+                        </div>
+
+                        <div class="sub" id="wan-ip">
+                            IP: --
+                        </div>
+
+                    </div>
+
+
+                    <div class="traffic-grid">
+
+                        <div class="traffic-item">
+
+                            <div class="traffic-label">
+                                Download
+                            </div>
+
+                            <div class="traffic-value" id="wan-rx">
+                                --
+                            </div>
+
+                            <div class="traffic-usage" id="wan-rx-usage">
+                                Utilization: --
+                            </div>
+
+                            <div class="traffic-bar">
+                                <div id="wan-rx-bar"></div>
+                            </div>
+
+                        </div>
+
+
+                        <div class="traffic-item">
+
+                            <div class="traffic-label">
+                                Upload
+                            </div>
+
+                            <div class="traffic-value" id="wan-tx">
+                                --
+                            </div>
+
+                            <div class="traffic-usage" id="wan-tx-usage">
+                                Utilization: --
+                            </div>
+
+                            <div class="traffic-bar">
+                                <div id="wan-tx-bar"></div>
+                            </div>
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+
+                <!-- LAN -->
+
+                <div class="network-card">
+
+                    <div class="network-header">
+
+                        <div>
+                            <h3>LAN</h3>
+
+                            <div class="interface" id="lan-interface">
+                                wlan0
+                            </div>
+                        </div>
+
+                        <span class="status" id="lan-status">
+                            --
+                        </span>
+
+                    </div>
+
+
+                    <div class="network-capacity">
+
+                        <div class="capacity-label">
+                            Link Capacity
+                        </div>
+
+                        <div class="capacity-value" id="lan-capacity">
+                            --
+                        </div>
+
+                        <div class="sub" id="lan-ip">
+                            IP: --
+                        </div>
+
+                    </div>
+
+
+                    <div class="traffic-grid">
+
+                        <div class="traffic-item">
+
+                            <div class="traffic-label">
+                                Download
+                            </div>
+
+                            <div class="traffic-value" id="lan-rx">
+                                --
+                            </div>
+
+                            <div class="traffic-usage" id="lan-rx-usage">
+                                Utilization: --
+                            </div>
+
+                            <div class="traffic-bar">
+                                <div id="lan-rx-bar"></div>
+                            </div>
+
+                        </div>
+
+
+                        <div class="traffic-item">
+
+                            <div class="traffic-label">
+                                Upload
+                            </div>
+
+                            <div class="traffic-value" id="lan-tx">
+                                --
+                            </div>
+
+                            <div class="traffic-usage" id="lan-tx-usage">
+                                Utilization: --
+                            </div>
+
+                            <div class="traffic-bar">
+                                <div id="lan-tx-bar"></div>
+                            </div>
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+
+            <!-- STATUS -->
+
             <div class="health-status">
 
                 Uptime:
 
-                <strong id="uptime">
-                    --
-                </strong>
+                <strong id="uptime">--</strong>
 
                 <span style="margin-left:20px;">
-
                     Last updated:
 
-                    <strong id="updated">
-                        --
-                    </strong>
-
+                    <strong id="updated">--</strong>
                 </span>
 
             </div>
@@ -4423,35 +4708,160 @@ def device_health_page():
 
         <script>
 
-        function setProgress(id, value) {
+        function setText(id, value) {
 
-            const bar =
-                document.getElementById(id);
+            const element = document.getElementById(id);
 
-            if (!bar) {
-                return;
+            if (element) {
+                element.textContent = value;
             }
 
-            const numeric =
-                Number(value);
+        }
+
+
+        function setProgress(id, value) {
+
+            const bar = document.getElementById(id);
+
+            if (!bar) return;
+
+            const numeric = Number(value);
 
             if (!Number.isFinite(numeric)) {
-
-                bar.style.width =
-                    "0%";
-
+                bar.style.width = "0%";
                 return;
-
             }
 
             bar.style.width =
-                Math.max(
-                    0,
-                    Math.min(
-                        100,
-                        numeric
-                    )
-                ) + "%";
+                Math.max(0, Math.min(100, numeric)) + "%";
+
+        }
+
+
+        function formatSpeed(value) {
+
+            if (value === null || value === undefined ||
+                !Number.isFinite(Number(value))) {
+                return "N/A";
+            }
+
+            value = Number(value);
+
+            if (value >= 1000) {
+                return (value / 1000).toFixed(2) + " Gbps";
+            }
+
+            return value.toFixed(2) + " Mbps";
+
+        }
+
+
+        function formatCapacity(capacity) {
+
+            if (!capacity || capacity.mbps === null ||
+                capacity.mbps === undefined) {
+                return "Unavailable";
+            }
+
+            if (capacity.gbps >= 1) {
+                return capacity.gbps + " Gbps";
+            }
+
+            return capacity.mbps + " Mbps";
+
+        }
+
+
+        function formatUsage(value) {
+
+            if (value === null || value === undefined ||
+                !Number.isFinite(Number(value))) {
+                return "Utilization: N/A";
+            }
+
+            return "Utilization: " + value + "%";
+
+        }
+
+
+        function updateNetwork(prefix, network) {
+
+            network = network || {};
+
+            const throughput = network.throughput || {};
+            const capacity = network.link_capacity || {};
+
+            setText(
+                prefix + "-interface",
+                network.interface || "--"
+            );
+
+            setText(
+                prefix + "-capacity",
+                formatCapacity(capacity)
+            );
+
+            setText(
+                prefix + "-ip",
+                "IP: " + (network.ip || "Unavailable")
+            );
+
+
+            const state = network.state || "unknown";
+
+            setText(
+                prefix + "-status",
+                state.toUpperCase()
+            );
+
+            const statusElement = document.getElementById(
+                prefix + "-status"
+            );
+
+            if (statusElement) {
+
+                statusElement.classList.toggle(
+                    "down",
+                    state !== "up" && state !== "unknown"
+                );
+
+            }
+
+
+            // Download
+
+            setText(
+                prefix + "-rx",
+                formatSpeed(throughput.rx_mbps)
+            );
+
+            setText(
+                prefix + "-rx-usage",
+                formatUsage(throughput.rx_usage_percent)
+            );
+
+            setProgress(
+                prefix + "-rx-bar",
+                throughput.rx_usage_percent
+            );
+
+
+            // Upload
+
+            setText(
+                prefix + "-tx",
+                formatSpeed(throughput.tx_mbps)
+            );
+
+            setText(
+                prefix + "-tx-usage",
+                formatUsage(throughput.tx_usage_percent)
+            );
+
+            setProgress(
+                prefix + "-tx-bar",
+                throughput.tx_usage_percent
+            );
 
         }
 
@@ -4460,116 +4870,113 @@ def device_health_page():
 
             try {
 
-                const response =
-                    await fetch(
-                        "/api/dashboard",
-                        {
-                            cache: "no-store"
-                        }
-                    );
-
+                const response = await fetch(
+                    "/api/dashboard",
+                    {
+                        cache: "no-store"
+                    }
+                );
 
                 if (!response.ok) {
-
-                    throw new Error(
-                        "Health request failed"
-                    );
-
+                    throw new Error("Health request failed");
                 }
 
+                const data = await response.json();
 
-                const data =
-                    await response.json();
-
-
-                const system =
-                    data.system || {};
+                const system = data.system || {};
+                const network = data.network || {};
 
 
-                const cpu =
-                    system.cpu_usage;
+                // CPU
 
-                const memory =
-                    system.memory_usage;
+                const cpu = system.cpu_usage;
 
-                const storage =
-                    system.storage_usage;
-
-
-                document.getElementById(
-                    "cpu"
-                ).textContent =
-
-                    cpu !== null &&
-                    cpu !== undefined
-
+                setText(
+                    "cpu",
+                    cpu !== null && cpu !== undefined
                         ? cpu + "%"
+                        : "N/A"
+                );
 
-                        : "N/A";
+                setProgress("cpu-bar", cpu);
 
 
-                document.getElementById(
-                    "memory"
-                ).textContent =
+                // CPU Frequency
 
-                    memory !== null &&
-                    memory !== undefined
+                const frequency = system.cpu_frequency || {};
 
+                setText(
+                    "cpu-frequency",
+                    frequency.ghz !== null &&
+                    frequency.ghz !== undefined
+                        ? frequency.ghz + " GHz"
+                        : "N/A"
+                );
+
+                setText(
+                    "cpu-frequency-mhz",
+                    frequency.mhz !== null &&
+                    frequency.mhz !== undefined
+                        ? frequency.mhz + " MHz"
+                        : "Current processor clock unavailable"
+                );
+
+
+                // Memory
+
+                const memory = system.memory_usage;
+
+                setText(
+                    "memory",
+                    memory !== null && memory !== undefined
                         ? memory + "%"
+                        : "N/A"
+                );
 
-                        : "N/A";
+                setProgress("memory-bar", memory);
 
 
-                document.getElementById(
-                    "temperature"
-                ).textContent =
+                // Temperature
 
+                setText(
+                    "temperature",
                     system.temperature !== null &&
                     system.temperature !== undefined
-
                         ? system.temperature + "°C"
+                        : "N/A"
+                );
 
-                        : "N/A";
 
+                // Storage
 
-                document.getElementById(
-                    "storage"
-                ).textContent =
+                const storage = system.storage_usage;
 
-                    storage !== null &&
-                    storage !== undefined
-
+                setText(
+                    "storage",
+                    storage !== null && storage !== undefined
                         ? storage + "%"
-
-                        : "N/A";
-
-
-                document.getElementById(
-                    "uptime"
-                ).textContent =
-                    system.uptime_text ||
-                    "Unknown";
-
-
-                document.getElementById(
-                    "updated"
-                ).textContent =
-                    new Date().toLocaleTimeString();
-
-
-                setProgress(
-                    "cpu-bar",
-                    cpu
+                        : "N/A"
                 );
 
-                setProgress(
-                    "memory-bar",
-                    memory
+                setProgress("storage-bar", storage);
+
+
+                // WAN and LAN
+
+                updateNetwork("wan", network.wan);
+                updateNetwork("lan", network.lan);
+
+
+                // Uptime
+
+                setText(
+                    "uptime",
+                    system.uptime_text || "Unknown"
                 );
 
-                setProgress(
-                    "storage-bar",
-                    storage
+                setText(
+                    "updated",
+                    new Date().toLocaleTimeString()
                 );
 
 
@@ -4587,19 +4994,14 @@ def device_health_page():
 
         refreshHealth();
 
-        setInterval(
-            refreshHealth,
-            3000
-        );
+        setInterval(refreshHealth, 3000);
 
         </script>
 
         </body>
-
         </html>
         """
     )
-
 
 # ============================================================
 # Device Details Route
