@@ -6512,12 +6512,11 @@ def dns_page():
 <aside class="sidebar">
 
     <div class="logo">
-        <img src="/logo.png" alt="PiHarbor"
+        <img src="/img/PiHarborLogo.png" alt="PiHarbor"
              onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
         <div class="logo-text">PiHarbor</div>
     </div>
 
-    <div class="nav-label">Network</div>
 
     <nav class="nav">
         <a href="/">Dashboard</a>
