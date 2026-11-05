@@ -97,7 +97,7 @@ chmod +x scripts/setup.sh
 #### 3.3 Run the Installer
 
 ```bash
-sudo ./scripts/setup.sh
+sudo bash ./scripts/setup.sh
 ```
 
 The setup script configures the Raspberry Pi as a PiHarbor network gateway and installs the required services and configuration files.
