@@ -6091,14 +6091,7 @@ def dns_page():
             <div class="stat-note">Active filtering entries</div>
         </div>
 
-        <div class="stat">
-            <div class="stat-label">Last Updated</div>
-            <div class="stat-value" style="font-size:19px;">
-                {{ status.last_update or "Never" }}
-            </div>
-            <div class="stat-note">Blocklist synchronization</div>
-        </div>
-
+        
     </section>
 
     <!-- AD BLOCKING -->
