@@ -6044,7 +6044,7 @@ def dns_page():
         <a href="/">Dashboard</a>
         <a href="/health">Device Health</a>
         <a href="/topology">Topology</a>
-        <a href="/dns" class="active">DNS</a>
+        <a href="/dns" class="active">Ad Blocking</a>
     </nav>
 
 </aside>
@@ -6053,7 +6053,7 @@ def dns_page():
 
     <header class="page-header">
         <div>
-            <h1>DNS & Ad Blocking</h1>
+            <h1>Ad Blocking</h1>
             <div class="subtitle">
                 Manage network-wide domain filtering and custom DNS rules.
             </div>
