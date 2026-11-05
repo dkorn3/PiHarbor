@@ -2246,6 +2246,86 @@ body {
 
         
 
+
+/* Consistent PiHarbor sidebar, logo and navigation across every page */
+.sidebar {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
+}
+
+.logo {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    text-align: center;
+    min-height: 0;
+    margin: 0 0 28px;
+    padding: 0;
+    font-family: inherit;
+    line-height: 1.2;
+}
+
+.logo img {
+    display: block;
+    width: 124px;
+    height: 124px;
+    max-width: 100%;
+    object-fit: contain;
+    border-radius: 50%;
+    margin: 0 auto;
+}
+
+.logo .logo-text {
+    display: none;
+    margin: 0;
+    padding: 0;
+    color: #f3f4f6;
+    font-family: inherit;
+    font-size: 22px;
+    font-weight: 700;
+    line-height: 1.2;
+}
+
+.nav {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
+}
+
+.nav a {
+    display: flex;
+    align-items: center;
+    min-height: 42px;
+    padding: 11px 13px;
+    margin: 0 0 5px;
+    border-radius: 8px;
+    color: #aeb5bf;
+    font-family: inherit;
+    font-size: 13px;
+    font-style: normal;
+    font-weight: 550;
+    line-height: 1.35;
+    letter-spacing: 0;
+    text-decoration: none;
+    white-space: nowrap;
+    -webkit-font-smoothing: antialiased;
+}
+
+.nav a:hover,
+.nav a.active {
+    background: #222831;
+    color: #fff;
+}
+
+@media (max-width: 800px) {
+    .logo {
+        margin-bottom: 15px;
+    }
+
+    .logo img {
+        width: 88px;
+        height: 88px;
+    }
+}
+
 </style>
 
 </head>
@@ -2278,9 +2358,7 @@ body {
             Topology
         </a>
         
-        <a href="/dns">
-            DNS
-        </a>
+        <a href="/dns">Ad Blocking</a>
 
     </div>
 
@@ -3211,6 +3289,86 @@ a {
     font-family: monospace;
 }
 
+
+/* Consistent PiHarbor sidebar, logo and navigation across every page */
+.sidebar {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
+}
+
+.logo {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    text-align: center;
+    min-height: 0;
+    margin: 0 0 28px;
+    padding: 0;
+    font-family: inherit;
+    line-height: 1.2;
+}
+
+.logo img {
+    display: block;
+    width: 124px;
+    height: 124px;
+    max-width: 100%;
+    object-fit: contain;
+    border-radius: 50%;
+    margin: 0 auto;
+}
+
+.logo .logo-text {
+    display: none;
+    margin: 0;
+    padding: 0;
+    color: #f3f4f6;
+    font-family: inherit;
+    font-size: 22px;
+    font-weight: 700;
+    line-height: 1.2;
+}
+
+.nav {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
+}
+
+.nav a {
+    display: flex;
+    align-items: center;
+    min-height: 42px;
+    padding: 11px 13px;
+    margin: 0 0 5px;
+    border-radius: 8px;
+    color: #aeb5bf;
+    font-family: inherit;
+    font-size: 13px;
+    font-style: normal;
+    font-weight: 550;
+    line-height: 1.35;
+    letter-spacing: 0;
+    text-decoration: none;
+    white-space: nowrap;
+    -webkit-font-smoothing: antialiased;
+}
+
+.nav a:hover,
+.nav a.active {
+    background: #222831;
+    color: #fff;
+}
+
+@media (max-width: 800px) {
+    .logo {
+        margin-bottom: 15px;
+    }
+
+    .logo img {
+        width: 88px;
+        height: 88px;
+    }
+}
+
 </style>
 
 </head>
@@ -3900,7 +4058,87 @@ def topology_page():
                     }
                 }
 
-            </style>
+            
+/* Consistent PiHarbor sidebar, logo and navigation across every page */
+.sidebar {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
+}
+
+.logo {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    text-align: center;
+    min-height: 0;
+    margin: 0 0 28px;
+    padding: 0;
+    font-family: inherit;
+    line-height: 1.2;
+}
+
+.logo img {
+    display: block;
+    width: 124px;
+    height: 124px;
+    max-width: 100%;
+    object-fit: contain;
+    border-radius: 50%;
+    margin: 0 auto;
+}
+
+.logo .logo-text {
+    display: none;
+    margin: 0;
+    padding: 0;
+    color: #f3f4f6;
+    font-family: inherit;
+    font-size: 22px;
+    font-weight: 700;
+    line-height: 1.2;
+}
+
+.nav {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
+}
+
+.nav a {
+    display: flex;
+    align-items: center;
+    min-height: 42px;
+    padding: 11px 13px;
+    margin: 0 0 5px;
+    border-radius: 8px;
+    color: #aeb5bf;
+    font-family: inherit;
+    font-size: 13px;
+    font-style: normal;
+    font-weight: 550;
+    line-height: 1.35;
+    letter-spacing: 0;
+    text-decoration: none;
+    white-space: nowrap;
+    -webkit-font-smoothing: antialiased;
+}
+
+.nav a:hover,
+.nav a.active {
+    background: #222831;
+    color: #fff;
+}
+
+@media (max-width: 800px) {
+    .logo {
+        margin-bottom: 15px;
+    }
+
+    .logo img {
+        width: 88px;
+        height: 88px;
+    }
+}
+
+</style>
         </head>
 
         <body>
@@ -3914,7 +4152,7 @@ def topology_page():
                     <a href="/">Dashboard</a>
                     <a href="/health">Device Health</a>
                     <a href="/topology" class="active">Topology</a>
-                    <a href="/dns">DNS</a>
+                    <a href="/dns">Ad Blocking</a>
                 </div>
             </div>
             <div class="main">
@@ -4368,7 +4606,87 @@ def device_health_page():
             }
         }
 
-        </style>
+        
+/* Consistent PiHarbor sidebar, logo and navigation across every page */
+.sidebar {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
+}
+
+.logo {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    text-align: center;
+    min-height: 0;
+    margin: 0 0 28px;
+    padding: 0;
+    font-family: inherit;
+    line-height: 1.2;
+}
+
+.logo img {
+    display: block;
+    width: 124px;
+    height: 124px;
+    max-width: 100%;
+    object-fit: contain;
+    border-radius: 50%;
+    margin: 0 auto;
+}
+
+.logo .logo-text {
+    display: none;
+    margin: 0;
+    padding: 0;
+    color: #f3f4f6;
+    font-family: inherit;
+    font-size: 22px;
+    font-weight: 700;
+    line-height: 1.2;
+}
+
+.nav {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
+}
+
+.nav a {
+    display: flex;
+    align-items: center;
+    min-height: 42px;
+    padding: 11px 13px;
+    margin: 0 0 5px;
+    border-radius: 8px;
+    color: #aeb5bf;
+    font-family: inherit;
+    font-size: 13px;
+    font-style: normal;
+    font-weight: 550;
+    line-height: 1.35;
+    letter-spacing: 0;
+    text-decoration: none;
+    white-space: nowrap;
+    -webkit-font-smoothing: antialiased;
+}
+
+.nav a:hover,
+.nav a.active {
+    background: #222831;
+    color: #fff;
+}
+
+@media (max-width: 800px) {
+    .logo {
+        margin-bottom: 15px;
+    }
+
+    .logo img {
+        width: 88px;
+        height: 88px;
+    }
+}
+
+</style>
 
         </head>
 
@@ -4377,8 +4695,9 @@ def device_health_page():
         <div class="sidebar">
 
             <div class="logo">
-                PiHarbor
-                <span>Network Gateway</span>
+                <img src="/logo.png" alt="PiHarbor"
+                     onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
+                <div class="logo-text">PiHarbor</div>
             </div>
 
             <div class="nav">
@@ -4391,7 +4710,7 @@ def device_health_page():
 
                 <a href="/topology">Topology</a>
 
-                <a href="/dns">DNS</a>
+                <a href="/dns">Ad Blocking</a>
 
             </div>
 
@@ -5197,7 +5516,87 @@ def network_page():
             border-radius:7px;
         }
 
-        </style>
+        
+/* Consistent PiHarbor sidebar, logo and navigation across every page */
+.sidebar {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
+}
+
+.logo {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    text-align: center;
+    min-height: 0;
+    margin: 0 0 28px;
+    padding: 0;
+    font-family: inherit;
+    line-height: 1.2;
+}
+
+.logo img {
+    display: block;
+    width: 124px;
+    height: 124px;
+    max-width: 100%;
+    object-fit: contain;
+    border-radius: 50%;
+    margin: 0 auto;
+}
+
+.logo .logo-text {
+    display: none;
+    margin: 0;
+    padding: 0;
+    color: #f3f4f6;
+    font-family: inherit;
+    font-size: 22px;
+    font-weight: 700;
+    line-height: 1.2;
+}
+
+.nav {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
+}
+
+.nav a {
+    display: flex;
+    align-items: center;
+    min-height: 42px;
+    padding: 11px 13px;
+    margin: 0 0 5px;
+    border-radius: 8px;
+    color: #aeb5bf;
+    font-family: inherit;
+    font-size: 13px;
+    font-style: normal;
+    font-weight: 550;
+    line-height: 1.35;
+    letter-spacing: 0;
+    text-decoration: none;
+    white-space: nowrap;
+    -webkit-font-smoothing: antialiased;
+}
+
+.nav a:hover,
+.nav a.active {
+    background: #222831;
+    color: #fff;
+}
+
+@media (max-width: 800px) {
+    .logo {
+        margin-bottom: 15px;
+    }
+
+    .logo img {
+        width: 88px;
+        height: 88px;
+    }
+}
+
+</style>
 
         </head>
 
@@ -5535,7 +5934,7 @@ def dns_page():
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>DNS - PiHarbor</title>
+    <title>Ad Blocking - PiHarbor</title>
 
     <style>
         * {
@@ -6025,7 +6424,87 @@ def dns_page():
                 padding: 17px;
             }
         }
-    </style>
+    
+/* Consistent PiHarbor sidebar, logo and navigation across every page */
+.sidebar {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
+}
+
+.logo {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    text-align: center;
+    min-height: 0;
+    margin: 0 0 28px;
+    padding: 0;
+    font-family: inherit;
+    line-height: 1.2;
+}
+
+.logo img {
+    display: block;
+    width: 124px;
+    height: 124px;
+    max-width: 100%;
+    object-fit: contain;
+    border-radius: 50%;
+    margin: 0 auto;
+}
+
+.logo .logo-text {
+    display: none;
+    margin: 0;
+    padding: 0;
+    color: #f3f4f6;
+    font-family: inherit;
+    font-size: 22px;
+    font-weight: 700;
+    line-height: 1.2;
+}
+
+.nav {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
+}
+
+.nav a {
+    display: flex;
+    align-items: center;
+    min-height: 42px;
+    padding: 11px 13px;
+    margin: 0 0 5px;
+    border-radius: 8px;
+    color: #aeb5bf;
+    font-family: inherit;
+    font-size: 13px;
+    font-style: normal;
+    font-weight: 550;
+    line-height: 1.35;
+    letter-spacing: 0;
+    text-decoration: none;
+    white-space: nowrap;
+    -webkit-font-smoothing: antialiased;
+}
+
+.nav a:hover,
+.nav a.active {
+    background: #222831;
+    color: #fff;
+}
+
+@media (max-width: 800px) {
+    .logo {
+        margin-bottom: 15px;
+    }
+
+    .logo img {
+        width: 88px;
+        height: 88px;
+    }
+}
+
+</style>
 </head>
 
 <body>
@@ -6329,7 +6808,87 @@ def monitoring_page():
             color:white;
         }
 
-        </style>
+        
+/* Consistent PiHarbor sidebar, logo and navigation across every page */
+.sidebar {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
+}
+
+.logo {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    text-align: center;
+    min-height: 0;
+    margin: 0 0 28px;
+    padding: 0;
+    font-family: inherit;
+    line-height: 1.2;
+}
+
+.logo img {
+    display: block;
+    width: 124px;
+    height: 124px;
+    max-width: 100%;
+    object-fit: contain;
+    border-radius: 50%;
+    margin: 0 auto;
+}
+
+.logo .logo-text {
+    display: none;
+    margin: 0;
+    padding: 0;
+    color: #f3f4f6;
+    font-family: inherit;
+    font-size: 22px;
+    font-weight: 700;
+    line-height: 1.2;
+}
+
+.nav {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
+}
+
+.nav a {
+    display: flex;
+    align-items: center;
+    min-height: 42px;
+    padding: 11px 13px;
+    margin: 0 0 5px;
+    border-radius: 8px;
+    color: #aeb5bf;
+    font-family: inherit;
+    font-size: 13px;
+    font-style: normal;
+    font-weight: 550;
+    line-height: 1.35;
+    letter-spacing: 0;
+    text-decoration: none;
+    white-space: nowrap;
+    -webkit-font-smoothing: antialiased;
+}
+
+.nav a:hover,
+.nav a.active {
+    background: #222831;
+    color: #fff;
+}
+
+@media (max-width: 800px) {
+    .logo {
+        margin-bottom: 15px;
+    }
+
+    .logo img {
+        width: 88px;
+        height: 88px;
+    }
+}
+
+</style>
 
         </head>
 
@@ -6495,7 +7054,87 @@ def logs_page():
             color:white;
         }
 
-        </style>
+        
+/* Consistent PiHarbor sidebar, logo and navigation across every page */
+.sidebar {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
+}
+
+.logo {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    text-align: center;
+    min-height: 0;
+    margin: 0 0 28px;
+    padding: 0;
+    font-family: inherit;
+    line-height: 1.2;
+}
+
+.logo img {
+    display: block;
+    width: 124px;
+    height: 124px;
+    max-width: 100%;
+    object-fit: contain;
+    border-radius: 50%;
+    margin: 0 auto;
+}
+
+.logo .logo-text {
+    display: none;
+    margin: 0;
+    padding: 0;
+    color: #f3f4f6;
+    font-family: inherit;
+    font-size: 22px;
+    font-weight: 700;
+    line-height: 1.2;
+}
+
+.nav {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
+}
+
+.nav a {
+    display: flex;
+    align-items: center;
+    min-height: 42px;
+    padding: 11px 13px;
+    margin: 0 0 5px;
+    border-radius: 8px;
+    color: #aeb5bf;
+    font-family: inherit;
+    font-size: 13px;
+    font-style: normal;
+    font-weight: 550;
+    line-height: 1.35;
+    letter-spacing: 0;
+    text-decoration: none;
+    white-space: nowrap;
+    -webkit-font-smoothing: antialiased;
+}
+
+.nav a:hover,
+.nav a.active {
+    background: #222831;
+    color: #fff;
+}
+
+@media (max-width: 800px) {
+    .logo {
+        margin-bottom: 15px;
+    }
+
+    .logo img {
+        width: 88px;
+        height: 88px;
+    }
+}
+
+</style>
 
         </head>
 
@@ -6588,7 +7227,87 @@ def simple_page(title, description):
             color:white;
         }
 
-        </style>
+        
+/* Consistent PiHarbor sidebar, logo and navigation across every page */
+.sidebar {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
+}
+
+.logo {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    text-align: center;
+    min-height: 0;
+    margin: 0 0 28px;
+    padding: 0;
+    font-family: inherit;
+    line-height: 1.2;
+}
+
+.logo img {
+    display: block;
+    width: 124px;
+    height: 124px;
+    max-width: 100%;
+    object-fit: contain;
+    border-radius: 50%;
+    margin: 0 auto;
+}
+
+.logo .logo-text {
+    display: none;
+    margin: 0;
+    padding: 0;
+    color: #f3f4f6;
+    font-family: inherit;
+    font-size: 22px;
+    font-weight: 700;
+    line-height: 1.2;
+}
+
+.nav {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
+}
+
+.nav a {
+    display: flex;
+    align-items: center;
+    min-height: 42px;
+    padding: 11px 13px;
+    margin: 0 0 5px;
+    border-radius: 8px;
+    color: #aeb5bf;
+    font-family: inherit;
+    font-size: 13px;
+    font-style: normal;
+    font-weight: 550;
+    line-height: 1.35;
+    letter-spacing: 0;
+    text-decoration: none;
+    white-space: nowrap;
+    -webkit-font-smoothing: antialiased;
+}
+
+.nav a:hover,
+.nav a.active {
+    background: #222831;
+    color: #fff;
+}
+
+@media (max-width: 800px) {
+    .logo {
+        margin-bottom: 15px;
+    }
+
+    .logo img {
+        width: 88px;
+        height: 88px;
+    }
+}
+
+</style>
 
         </head>
 
