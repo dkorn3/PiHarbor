@@ -73,6 +73,9 @@ The following diagram illustrates how an incoming response packet travels throug
 
 ### 3. Installation
 
+**Network Connection:** PiHarbor must be connected to an existing modem or upstream router through Ethernet (WAN) to receive internet access. PiHarbor then acts as your primary router, managing network traffic and providing Wi-Fi connectivity to your devices.
+
+
 PiHarbor configures a Raspberry Pi as a network gateway, providing routing, NAT, DNS, DHCP, firewalling, Wi-Fi access point functionality, ad blocking, traffic monitoring, and a web-based dashboard.
 
 #### 3.1 Clone the Repository
