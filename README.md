@@ -142,13 +142,6 @@ ip -br addr
 systemctl --type=service --state=running
 ```
 
-#### 5.3 Verify the Dashboard
-
-```bash
-curl -I http://127.0.0.1
-```
-
-If the dashboard is unavailable, inspect the application service status and system logs to identify the issue.
 
 ### 6. Troubleshooting
 
