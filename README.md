@@ -7,9 +7,10 @@
 
 <p align="center">
   A Raspberry Pi-based router and Wi-Fi access point built with Linux and Python, featuring routing, NAT, DHCP, DNS, firewalling, ad blocking, and network monitoring through a web-based dashboard. 
-(YES THIS CAN REPLACE YOUR HOME ROUTER!)
 </p>
-
+<p align="center">
+  <strong>YES, THIS CAN REPLACE YOUR TRADITIONAL HOME ROUTER!</strong>
+</p>
 ---
 
 # PiHarbor
