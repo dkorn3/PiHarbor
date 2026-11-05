@@ -5529,373 +5529,693 @@ def dns_page():
 
     return render_template_string(
         """
-        <!DOCTYPE html>
 
-        <html>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DNS - PiHarbor</title>
 
-        <head>
+    <style>
+        * {
+            box-sizing: border-box;
+        }
 
-        <meta
-            name="viewport"
-            content="width=device-width"
-        >
-
-        <title>
-            DNS - PiHarbor
-        </title>
-
-        <style>
-
-        * { box-sizing: border-box; }
+        :root {
+            --bg: #0b0e13;
+            --sidebar: #10151d;
+            --card: #151c26;
+            --card-hover: #192331;
+            --border: #263241;
+            --text: #edf2f8;
+            --muted: #8996a7;
+            --green: #65d995;
+            --red: #ed7777;
+            --blue: #72b7ff;
+        }
 
         body {
             margin: 0;
-            padding: 0;
-            background:#0b0e12;
-            color:#f1f1f1;
-            font-family:Arial,sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            font-family: -apple-system, BlinkMacSystemFont,
+                         "Segoe UI", Arial, sans-serif;
         }
+
+        /* Sidebar */
 
         .sidebar {
             position: fixed;
-            left: 0;
-            top: 0;
-            bottom: 0;
-            width: 220px;
-            background: #12161c;
-            border-right: 1px solid #252b34;
-            padding: 24px 16px;
+            inset: 0 auto 0 0;
+            width: 230px;
+            padding: 25px 17px;
+            background: var(--sidebar);
+            border-right: 1px solid var(--border);
             z-index: 10;
         }
 
-        .logo { margin-bottom: 30px; text-align: center; }
+        .logo {
+            text-align: center;
+            margin-bottom: 35px;
+        }
+
         .logo img {
-            display: block;
-            width: 150px;
-            height: 150px;
+            width: 145px;
+            height: 145px;
             object-fit: cover;
             border-radius: 50%;
-            margin: 0 auto 8px;
-        }
-        .logo-text { display: none; font-size: 24px; font-weight: 700; }
-        .nav a {
             display: block;
-            padding: 11px 13px;
-            margin-bottom: 5px;
-            border-radius: 8px;
-            color: #aeb5bf;
-            text-decoration: none;
+            margin: 0 auto 10px;
         }
-        .nav a:hover, .nav a.active { background: #222831; color: #fff; }
-        .main { margin-left: 220px; padding: 30px; max-width: 1600px; }
+
+        .logo-text {
+            display: none;
+            font-size: 24px;
+            font-weight: 750;
+        }
+
+        .nav-label {
+            padding: 0 12px;
+            margin-bottom: 12px;
+            color: #647386;
+            font-size: 10px;
+            font-weight: 750;
+            letter-spacing: 1.5px;
+            text-transform: uppercase;
+        }
+
+        .nav a {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px 14px;
+            margin-bottom: 5px;
+            border-radius: 9px;
+            color: #aab6c5;
+            text-decoration: none;
+            font-size: 13px;
+            font-weight: 550;
+            transition: .2s;
+        }
+
+        .nav a:hover {
+            background: #1b2633;
+            color: white;
+        }
+
+        .nav a.active {
+            background: #1b3045;
+            color: #83c3ff;
+            border: 1px solid #294663;
+        }
+
+        /* Main */
+
+        .main {
+            margin-left: 230px;
+            padding: 38px;
+            max-width: 1650px;
+        }
+
+        .page-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        h1 {
+            margin: 0;
+            font-size: 29px;
+            letter-spacing: -.8px;
+        }
+
+        h2 {
+            margin: 0;
+            font-size: 17px;
+            font-weight: 650;
+        }
+
+        h3 {
+            font-size: 13px;
+            margin: 25px 0 12px;
+        }
+
+        .subtitle {
+            color: var(--muted);
+            font-size: 13px;
+            margin-top: 8px;
+        }
+
+        /* Status */
+
+        .status-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 9px 14px;
+            border-radius: 30px;
+            font-size: 11px;
+            font-weight: 700;
+            white-space: nowrap;
+        }
+
+        .status-pill.on {
+            color: var(--green);
+            background: #142a20;
+            border: 1px solid #28533c;
+        }
+
+        .status-pill.off {
+            color: var(--red);
+            background: #2b1b20;
+            border: 1px solid #59333a;
+        }
+
+        .status-dot {
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+            background: currentColor;
+        }
+
+        /* Cards */
 
         .card {
-            background:#171a21;
-            border:1px solid #282c35;
-            border-radius:12px;
-            padding:20px;
-            max-width:900px;
-            margin-bottom:20px;
+            background: linear-gradient(145deg, #18212d, #131a23);
+            border: 1px solid var(--border);
+            border-radius: 13px;
+            padding: 23px;
+            margin-bottom: 19px;
+            max-width: 1050px;
         }
 
-        a {
-            color:white;
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 8px;
         }
 
-        .status {
-            font-size:24px;
-            font-weight:bold;
+        .description {
+            color: var(--muted);
+            font-size: 12px;
+            line-height: 1.7;
+            margin: 7px 0 20px;
         }
 
-        .active {
-            color:#65d985;
+        /* Overview */
+
+        .overview {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 14px;
+            max-width: 1050px;
+            margin-bottom: 19px;
         }
 
-        .inactive {
-            color:#d96868;
+        .stat {
+            background: #141c26;
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 19px;
         }
 
-        .button {
-            padding:9px 14px;
-            background:#252a34;
-            color:white;
-            border:1px solid #3a404c;
-            border-radius:7px;
-            cursor:pointer;
-            margin-right:8px;
+        .stat-label {
+            color: var(--muted);
+            font-size: 10px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1px;
         }
 
-        .button:hover {
-            background:#303642;
+        .stat-value {
+            font-size: 26px;
+            font-weight: 750;
+            margin-top: 12px;
+            letter-spacing: -.7px;
         }
 
-        .message {
-            padding:12px;
-            border-radius:8px;
-            margin-bottom:20px;
-            background:#252a34;
+        .stat-note {
+            color: #788697;
+            font-size: 11px;
+            margin-top: 6px;
         }
 
-        .message.success {
-            border:1px solid #3b7650;
+        .green {
+            color: var(--green);
         }
 
-        .message.error {
-            border:1px solid #7a4141;
+        .blue {
+            color: var(--blue);
         }
+
+        /* Information rows */
 
         .row {
-            padding:12px 0;
-            border-bottom:1px solid #282c35;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 15px;
+            padding: 14px 0;
+            border-bottom: 1px solid #283442;
+            font-size: 13px;
         }
 
         .row:last-child {
-            border-bottom:none;
+            border-bottom: none;
         }
 
         .value {
-            float:right;
-            font-weight:600;
+            color: #e7edf5;
+            font-weight: 650;
+            text-align: right;
+            overflow-wrap: anywhere;
         }
 
+        /* Buttons */
+
+        .actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        .button {
+            padding: 11px 16px;
+            background: #222f3e;
+            color: #eaf2fb;
+            border: 1px solid #3a4d61;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: 650;
+            transition: .2s;
+        }
+
+        .button:hover {
+            background: #2d4054;
+            border-color: #6486a9;
+            transform: translateY(-1px);
+        }
+
+        .button.primary {
+            background: #19456a;
+            border-color: #2c6899;
+            color: #c7e5ff;
+        }
+
+        .button.primary:hover {
+            background: #235b86;
+        }
+
+        .button.danger {
+            background: #321f25;
+            border-color: #623b43;
+            color: #f0a3a3;
+        }
+
+        .button.danger:hover {
+            background: #49272e;
+        }
+
+        /* Notifications */
+
+        .message {
+            max-width: 1050px;
+            padding: 13px 16px;
+            border-radius: 9px;
+            margin-bottom: 19px;
+            background: #19232f;
+            font-size: 12px;
+        }
+
+        .message.success {
+            border: 1px solid #315d45;
+            color: #9ce2b5;
+        }
+
+        .message.error {
+            border: 1px solid #63363b;
+            color: #f0a1a1;
+        }
+
+        /* Custom blocklist */
+
         .custom-domain-form {
-            display:flex;
-            gap:10px;
-            margin-bottom:20px;
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
         }
 
         .domain-input {
-            flex:1;
-            padding:10px;
-            background:#0f1115;
-            color:white;
-            border:1px solid #3a404c;
-            border-radius:7px;
-            min-width:0;
+            flex: 1;
+            min-width: 0;
+            padding: 12px 14px;
+            background: #0d141d;
+            color: white;
+            border: 1px solid #354557;
+            border-radius: 8px;
+            font-size: 13px;
+            outline: none;
+            font-family: monospace;
+        }
+
+        .domain-input:focus {
+            border-color: #65a9e4;
+            box-shadow: 0 0 0 3px #65a9e41c;
+        }
+
+        .domain-input::placeholder {
+            color: #687789;
+        }
+
+        .section-heading {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            margin-top: 29px;
+            margin-bottom: 12px;
+        }
+
+        .count {
+            padding: 5px 9px;
+            border-radius: 6px;
+            background: #202c3a;
+            color: #9fcfff;
+            font-size: 11px;
+            font-weight: 700;
+        }
+
+        .domain-list {
+            border-top: 1px solid var(--border);
         }
 
         .custom-domain {
-            display:flex;
-            justify-content:space-between;
-            align-items:center;
-            gap:10px;
-            padding:12px 0;
-            border-bottom:1px solid #282c35;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 15px;
+            padding: 14px 4px;
+            border-bottom: 1px solid #283442;
         }
 
         .custom-domain:last-child {
-            border-bottom:none;
+            border-bottom: none;
         }
 
         .domain-name {
-            word-break:break-all;
+            min-width: 0;
+            overflow-wrap: anywhere;
+            color: #dce8f4;
+            font-family: monospace;
+            font-size: 12px;
         }
 
         .remove-form {
-            margin:0;
+            margin: 0;
+            flex-shrink: 0;
         }
 
-        @media (max-width:800px) {
+        .empty {
+            color: var(--muted);
+            padding: 23px 5px;
+            font-size: 12px;
+            text-align: center;
+        }
+
+        /* Responsive */
+
+        @media(max-width: 950px) {
+            .overview {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+        }
+
+        @media(max-width: 800px) {
             .sidebar {
-                position: static;
+                position: relative;
                 width: 100%;
                 height: auto;
+                padding: 15px;
             }
+
+            .logo img {
+                width: 85px;
+                height: 85px;
+            }
+
+            .logo {
+                margin-bottom: 15px;
+            }
+
+            .nav {
+                display: flex;
+                flex-wrap: wrap;
+            }
+
+            .nav-label {
+                display: none;
+            }
+
+            .nav a {
+                flex: 1;
+                justify-content: center;
+                min-width: 100px;
+            }
+
             .main {
                 margin-left: 0;
-                padding: 16px;
+                padding: 22px;
+            }
+
+            .page-header {
+                align-items: flex-start;
+                flex-direction: column;
             }
         }
 
-        @media (max-width:600px) {
-            .custom-domain-form { flex-direction:column; }
+        @media(max-width: 550px) {
+            .overview {
+                grid-template-columns: 1fr;
+            }
+
+            .custom-domain-form {
+                flex-direction: column;
+            }
+
+            .custom-domain {
+                align-items: flex-start;
+            }
+
+            h1 {
+                font-size: 25px;
+            }
+
+            .main {
+                padding: 16px;
+            }
+
+            .card {
+                padding: 17px;
+            }
         }
+    </style>
+</head>
 
-        </style>
+<body>
 
-        </head>
+<aside class="sidebar">
 
-        <body>
-        <div class="sidebar">
-            <div class="logo">
-                <img src="/logo.png" alt="PiHarbor"
-                     onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
-                <div class="logo-text">PiHarbor</div>
-            </div>
-            <div class="nav">
-                <a href="/">Dashboard</a>
-                <a href="/health">Device Health</a>
-                <a href="/topology">Topology</a>
-                <a href="/dns" class="active">DNS</a>
+    <div class="logo">
+        <img src="/logo.png" alt="PiHarbor"
+             onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
+        <div class="logo-text">PiHarbor</div>
+    </div>
+
+    <div class="nav-label">Network</div>
+
+    <nav class="nav">
+        <a href="/">Dashboard</a>
+        <a href="/health">Device Health</a>
+        <a href="/topology">Topology</a>
+        <a href="/dns" class="active">DNS</a>
+    </nav>
+
+</aside>
+
+<main class="main">
+
+    <header class="page-header">
+        <div>
+            <h1>DNS & Ad Blocking</h1>
+            <div class="subtitle">
+                Manage network-wide domain filtering and custom DNS rules.
             </div>
         </div>
 
-        <div class="main">
-        <h1>
-            DNS
-        </h1>
+        <span class="status-pill {{ 'on' if status.enabled else 'off' }}">
+            <span class="status-dot"></span>
+            {{ 'Protection enabled' if status.enabled else 'Protection disabled' }}
+        </span>
+    </header>
 
+    {% if message %}
+        <div class="message {{ message_type }}">
+            {{ message }}
+        </div>
+    {% endif %}
 
-        {% if message %}
+    <!-- OVERVIEW -->
 
-            <div class="message {{ message_type }}">
-                {{ message }}
+    <section class="overview">
+
+        <div class="stat">
+            <div class="stat-label">Ad Blocking</div>
+            <div class="stat-value {{ 'green' if status.enabled else '' }}">
+                {{ 'Enabled' if status.enabled else 'Disabled' }}
             </div>
+            <div class="stat-note">Network protection status</div>
+        </div>
 
-        {% endif %}
-
-
-        <!-- AD BLOCKING -->
-
-        <div class="card">
-
-            <h2>
-                Ad Blocking
-            </h2>
-
-
-            <div class="row">
-
-                Status
-
-                {% if status.enabled %}
-
-                    <span class="value active">
-                        Enabled
-                    </span>
-
-                {% else %}
-
-                    <span class="value inactive">
-                        Disabled
-                    </span>
-
-                {% endif %}
-
+        <div class="stat">
+            <div class="stat-label">Blocked Domains</div>
+            <div class="stat-value blue">
+                {{ "{:,}".format(status.blocked_domains or 0) }}
             </div>
+            <div class="stat-note">Active filtering entries</div>
+        </div>
 
-
-            <div class="row">
-
-                Blocked Domains
-
-                <span class="value">
-                    {{ status.blocked_domains }}
-                </span>
-
+        <div class="stat">
+            <div class="stat-label">Last Updated</div>
+            <div class="stat-value" style="font-size:19px;">
+                {{ status.last_update or "Never" }}
             </div>
+            <div class="stat-note">Blocklist synchronization</div>
+        </div>
 
+    </section>
 
-            <div class="row">
+    <!-- AD BLOCKING -->
 
-                Last Updated
+    <section class="card">
 
-                <span class="value">
+        <div class="card-header">
+            <h2>Ad Blocking</h2>
 
-                    {% if status.last_update %}
+            <span class="status-pill {{ 'on' if status.enabled else 'off' }}">
+                {{ 'Active' if status.enabled else 'Inactive' }}
+            </span>
+        </div>
 
-                        {{ status.last_update }}
+        <p class="description">
+            Control network-wide ad and tracker filtering.
+            Manage protection and keep your blocklist up to date.
+        </p>
 
-                    {% else %}
+        <div class="row">
+            <span>Protection status</span>
+            <span class="value {{ 'green' if status.enabled else '' }}">
+                {{ 'Enabled' if status.enabled else 'Disabled' }}
+            </span>
+        </div>
 
-                        Never
+        <div class="row">
+            <span>Blocked domains</span>
+            <span class="value">
+                {{ "{:,}".format(status.blocked_domains or 0) }}
+            </span>
+        </div>
 
-                    {% endif %}
+        <div class="row">
+            <span>Blocklist size</span>
+            <span class="value">
+                {{ (status.size_bytes / 1048576)|round(1) if status.size_bytes else 0 }} MB
+            </span>
+        </div>
 
-                </span>
+        <div class="row">
+            <span>Last updated</span>
+            <span class="value">
+                {{ status.last_update or "Never" }}
+            </span>
+        </div>
 
-            </div>
+        <form method="post" class="actions">
 
-
-            <br>
-
-
-            <form method="post">
-
-                {% if status.enabled %}
-
-                    <button
-                        class="button"
+            {% if status.enabled %}
+                <button class="button danger"
                         name="adblock_action"
-                        value="disable"
-                    >
-                        Disable Ad Blocking
-                    </button>
-
-                {% else %}
-
-                    <button
-                        class="button"
+                        value="disable">
+                    Disable Ad Blocking
+                </button>
+            {% else %}
+                <button class="button primary"
                         name="adblock_action"
-                        value="enable"
-                    >
-                        Enable Ad Blocking
-                    </button>
+                        value="enable">
+                    Enable Ad Blocking
+                </button>
+            {% endif %}
 
-                {% endif %}
+            <button class="button"
+                    name="adblock_action"
+                    value="update">
+                Update Blocklist
+            </button>
 
+        </form>
+
+    </section>
+
+    <!-- CUSTOM BLOCKLIST -->
+
+    <section class="card">
+
+        <div class="card-header">
+            <h2>Custom Blocklist</h2>
+        </div>
+
+        <p class="description">
+            Manually block specific domains across your network.
+            Enter a hostname or paste a URL to add it to your custom rules.
+        </p>
+
+        <form method="post">
+
+            <div class="custom-domain-form">
+
+                <input
+                    class="domain-input"
+                    type="text"
+                    name="domain"
+                    placeholder="example.com"
+                    required
+                >
 
                 <button
-                    class="button"
-                    name="adblock_action"
-                    value="update"
+                    class="button primary"
+                    type="submit"
+                    name="custom_action"
+                    value="add"
                 >
-                    Update Blocklist
+                    + Block Domain
                 </button>
 
-            </form>
+            </div>
 
+        </form>
+
+        <div class="section-heading">
+            <h3 style="margin:0;">Custom Blocked Domains</h3>
+            <span class="count">{{ custom_domains|length }} domains</span>
         </div>
 
-
-        <!-- CUSTOM BLOCKLIST -->
-
-        <div class="card">
-
-            <h2>
-                Custom Blocklist
-            </h2>
-
-
-            <p style="color:#888;">
-
-                Add your own domains to block.
-                You can enter a domain or paste a URL.
-
-            </p>
-
-
-            <form method="post">
-
-                <div class="custom-domain-form">
-
-                    <input
-                        class="domain-input"
-                        type="text"
-                        name="domain"
-                        placeholder="example.com"
-                        required
-                    >
-
-
-                    <button
-                        class="button"
-                        type="submit"
-                        name="custom_action"
-                        value="add"
-                    >
-                        Block Domain
-                    </button>
-
-                </div>
-
-            </form>
-
-
-            <h3>
-                Custom Blocked Domains
-            </h3>
-
+        <div class="domain-list">
 
             {% if custom_domains %}
 
@@ -5907,11 +6227,7 @@ def dns_page():
                             {{ domain }}
                         </span>
 
-
-                        <form
-                            method="post"
-                            class="remove-form"
-                        >
+                        <form method="post" class="remove-form">
 
                             <input
                                 type="hidden"
@@ -5919,9 +6235,8 @@ def dns_page():
                                 value="{{ domain }}"
                             >
 
-
                             <button
-                                class="button"
+                                class="button danger"
                                 type="submit"
                                 name="custom_action"
                                 value="remove"
@@ -5935,21 +6250,23 @@ def dns_page():
 
                 {% endfor %}
 
-
             {% else %}
 
-                <p style="color:#777;">
-                    No custom domains are blocked.
-                </p>
+                <div class="empty">
+                    No custom domains are currently blocked.
+                </div>
 
             {% endif %}
 
         </div>
-        </div>
 
-        </body>
+    </section>
 
-        </html>
+</main>
+
+</body>
+</html>
+
         """,
 
         status=status,
