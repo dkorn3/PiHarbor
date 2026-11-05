@@ -6073,26 +6073,25 @@ def dns_page():
 
     <!-- OVERVIEW -->
 
-    <section class="overview">
+   <section class="overview">
 
-        <div class="stat">
-            <div class="stat-label">Ad Blocking</div>
-            <div class="stat-value {{ 'green' if status.enabled else '' }}">
-                {{ 'Enabled' if status.enabled else 'Disabled' }}
-            </div>
-            <div class="stat-note">Network protection status</div>
+    <div class="stat">
+        <div class="stat-label">Ad Blocking</div>
+        <div class="stat-value {{ 'green' if status.enabled else '' }}">
+            {{ 'Enabled' if status.enabled else 'Disabled' }}
         </div>
+        <div class="stat-note">Network protection status</div>
+    </div>
 
-        <div class="stat">
-            <div class="stat-label">Blocked Domains</div>
-            <div class="stat-value blue">
-                {{ "{:,}".format(status.blocked_domains or 0) }}
-            </div>
-            <div class="stat-note">Active filtering entries</div>
+    <div class="stat">
+        <div class="stat-label">Blocked Domains</div>
+        <div class="stat-value blue">
+            {{ "{:,}".format(status.blocked_domains or 0) }}
         </div>
+        <div class="stat-note">Active filtering entries</div>
+    </div>
 
-        
-    </section>
+</section>
 
     <!-- AD BLOCKING -->
 
