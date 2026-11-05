@@ -18,14 +18,30 @@
 ### Dashboard
 
 <p align="center">
-  <img src="img/dashboardpiharbor.png" alt="PiHarbor Dashboard" width="1200">
+  <img src="img/PiDasboard.png" alt="PiHarbor Dashboard" width="1200">
 </p>
+
+### Device Health
+
+<p align="center">
+  <img src="img/PiHealth.png" alt="PiHarbor Device Health" width="1200">
+</p>
+
 
 ### Network Topology
 
 <p align="center">
-  <img src="img/topologypiharbor.png" alt="PiHarbor Network Topology" width="1200">
+  <img src="img/PiTopology.png" alt="PiHarbor Network Topology" width="1200">
 </p>
+
+
+### Ad Blocking
+
+<p align="center">
+  <img src="img/PiAd.png" alt="PiHarbor Ad Blocking" width="1200">
+</p>
+
+
 
 ### Packet Flow: Internet to Client
 
