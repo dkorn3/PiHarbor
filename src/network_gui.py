@@ -105,65 +105,31 @@ def get_network_config():
 # Logo
 # ============================================================
 
-SRC_DIR = os.path.dirname(os.path.abspath(__file__))
+# ============================================================
+# Logo
+# ============================================================
 
-# The logo lives in the piharbor directory, one level above src/.
-PROJECT_DIR = os.path.abspath(
-    os.path.join(SRC_DIR, "..")
+SRC_DIR = os.path.dirname(os.path.abspath(__file__))
+PROJECT_DIR = os.path.abspath(os.path.join(SRC_DIR, ".."))
+
+LOGO_PATH = os.path.join(
+    PROJECT_DIR,
+    "img",
+    "PiHarborLogo.png"
 )
 
 
-def find_logo_path():
-    """
-    Find the PiHarbor logo PNG in the project directory
-    (falls back to src/).
-    """
-
-    for folder in (PROJECT_DIR, SRC_DIR):
-
-        try:
-            names = sorted(os.listdir(folder))
-        except OSError:
-            continue
-
-        matches = [
-            name
-            for name in names
-            if name.lower().endswith(".png")
-            and (
-                "logo" in name.lower()
-                or "piharbor" in name.lower()
-            )
-        ]
-
-        # Prefer files that mention both piharbor and logo.
-        matches.sort(
-            key=lambda name: (
-                "piharbor" not in name.lower(),
-                "logo" not in name.lower(),
-            )
-        )
-
-        if matches:
-            return os.path.join(folder, matches[0])
-
-    return None
-
-
-@app.route("img/PiHaborLogo.png")
+@app.route("/img/PiHarborLogo.png")
 def logo():
 
-    path = find_logo_path()
-
-    if path is None:
+    if not os.path.isfile(LOGO_PATH):
         abort(404)
 
     return send_file(
-        path,
+        LOGO_PATH,
         mimetype="image/png",
         max_age=3600,
     )
-
 
 # ============================================================
 # 24-Hour History (throughput + packet loss)
@@ -1593,7 +1559,7 @@ DASHBOARD_TEMPLATE = """
 
 <title>PiHarbor Dashboard</title>
 
-<link rel="icon" type="image/png" href="img/PiHarborLogo.png">
+<link rel="icon" type="image/png" href="/img/PiHarborLogo.png">
 
 <style>
 
@@ -2336,7 +2302,7 @@ body {
 
     <div class="logo">
         <img
-            src="img/PiHarborLogo.png"
+            src="/img/PiHarborLogo.png"
             alt="PiHarbor"
             onerror="this.style.display='none'; this.nextElementSibling.style.display='block';"
         >
@@ -4144,7 +4110,7 @@ def topology_page():
         <body>
             <div class="sidebar">
                 <div class="logo">
-                    <img src="img/PiHarborLogo.png" alt="PiHarbor"
+                    <img src="/img/PiHarborLogo.png" alt="PiHarbor"
                          onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
                     <div class="logo-text">PiHarbor</div>
                 </div>
@@ -4198,7 +4164,7 @@ def topology_page():
                                     <div class="node-symbol {% if is_pi %}node-logo{% endif %}">
                                         {% if is_pi %}
                                             <img
-                                                src="img/PiHarborLogo.png"
+                                                src="/img/PiHarborLogo.png"
                                                 alt="PiHarbor"
                                                 onerror="this.replaceWith('🛡️')"
                                             >
@@ -4695,7 +4661,7 @@ def device_health_page():
         <div class="sidebar">
 
             <div class="logo">
-                <img src="img/PiHarborLogo.png" alt="PiHarbor"
+                <img src="/img/PiHarborLogo.png" alt="PiHarbor"
                      onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
                 <div class="logo-text">PiHarbor</div>
             </div>
@@ -6512,7 +6478,7 @@ def dns_page():
 <aside class="sidebar">
 
     <div class="logo">
-        <img src="img/PiHarborLogo.png" alt="PiHarbor"
+        <img src="/img/PiHarborLogo.png" alt="PiHarbor"
              onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
         <div class="logo-text">PiHarbor</div>
     </div>
