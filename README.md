@@ -18,7 +18,7 @@
 ### Dashboard
 
 <p align="center">
-  <img src="img/PiDasboard.png" alt="PiHarbor Dashboard" width="1200">
+  <img src="img/PiDashboard.png" alt="PiHarbor Dashboard" width="1200">
 </p>
 
 ### Device Health
