@@ -150,7 +150,7 @@ def find_logo_path():
     return None
 
 
-@app.route("/logo.png")
+@app.route("img/PiHaborLogo.png")
 def logo():
 
     path = find_logo_path()
@@ -1593,7 +1593,7 @@ DASHBOARD_TEMPLATE = """
 
 <title>PiHarbor Dashboard</title>
 
-<link rel="icon" type="image/png" href="/logo.png">
+<link rel="icon" type="image/png" href="img/PiHarborLogo.png">
 
 <style>
 
@@ -2336,7 +2336,7 @@ body {
 
     <div class="logo">
         <img
-            src="/logo.png"
+            src="img/PiHarborLogo.png"
             alt="PiHarbor"
             onerror="this.style.display='none'; this.nextElementSibling.style.display='block';"
         >
@@ -4144,7 +4144,7 @@ def topology_page():
         <body>
             <div class="sidebar">
                 <div class="logo">
-                    <img src="/logo.png" alt="PiHarbor"
+                    <img src="img/PiHarborLogo.png" alt="PiHarbor"
                          onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
                     <div class="logo-text">PiHarbor</div>
                 </div>
@@ -4198,7 +4198,7 @@ def topology_page():
                                     <div class="node-symbol {% if is_pi %}node-logo{% endif %}">
                                         {% if is_pi %}
                                             <img
-                                                src="/logo.png"
+                                                src="img/PiHarborLogo.png"
                                                 alt="PiHarbor"
                                                 onerror="this.replaceWith('🛡️')"
                                             >
@@ -4695,7 +4695,7 @@ def device_health_page():
         <div class="sidebar">
 
             <div class="logo">
-                <img src="/logo.png" alt="PiHarbor"
+                <img src="img/PiHarborLogo.png" alt="PiHarbor"
                      onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
                 <div class="logo-text">PiHarbor</div>
             </div>
@@ -6512,7 +6512,7 @@ def dns_page():
 <aside class="sidebar">
 
     <div class="logo">
-        <img src="/img/PiHarborLogo.png" alt="PiHarbor"
+        <img src="img/PiHarborLogo.png" alt="PiHarbor"
              onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
         <div class="logo-text">PiHarbor</div>
     </div>
